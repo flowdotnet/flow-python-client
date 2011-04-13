@@ -4,12 +4,10 @@ The Flow Platform: Python Client Library
 Usage
 -----
 
-    <pre>
     from flow import client
 
     api = client.API(YOUR_APP_KEY, YOUR_APP_SECRET)
     api.set_actor(ID_OF_IDENTITY_TO_DO_BUSINESS_AS)
-    </pre>
 
 Examples
 --------
