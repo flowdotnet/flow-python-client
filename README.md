@@ -14,21 +14,29 @@ Examples
 
 1. Turn type hinting off
 
+
     api.set_opts({'params': {'hints': 0}})
+
 
 2. Retrieve a flow by its ID
 
+
     api.get('/bucket/%s' % ID)
 
+
 3. Retrieve a flow by its path
+
 
     opts = {'params': {'criteria': """{"path": "%s"}""" % PATH}}
     api.get('/bucket', opts)
 
+
 4. Retrieve the drops from a flow
+
 
     opts = {'params': {'start': OFFSET, 'limit': LIMIT}}
     api.get('/drop/%s' % BUCKET_ID, opts)
+
 
 5. Retrive **all** the drops from a flow
 
