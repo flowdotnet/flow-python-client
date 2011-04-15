@@ -4,7 +4,7 @@ import time, hashlib
 
 class API(object):
   URI     = 'api.flow.net'
-  FS_URI  = 'fs.flow.net'
+  FS_URI  = 'file.flow.net'
   PORT    = 80
 
   MIME_JSON = 'application/json'
