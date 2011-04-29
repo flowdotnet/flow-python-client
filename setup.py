@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-version = '0.1'
+version = '0.1.1'
 
 conf = {
   'name' : 'flow',
@@ -12,9 +12,9 @@ conf = {
   'author_email' : 'jeff@flow.net',
   'maintainer' : 'jeff',
   'maintainer_email' : 'jeff@flow.net',
+  'py_modules': ['flow'],
   'keywords': ['Flow'],
   'license': 'MIT',
-  'packages': ['flow'],
   'test_suite': 'tests.client_test',
   'classifiers': [
     'Development Status :: 0',
