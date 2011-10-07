@@ -83,23 +83,37 @@ Instances of these domain model classes follow an Active Record pattern.
 
   * Creation and Modification ::
     
+      # the `save` method invokes a call to the platform 
+      # which will remotely persist the object
       my_coupons = flow.Flow(path = '/identity/jeffo/coupons', name = 'My Coupons').save()
 
+      # post-save, an id is assigned
       print my_coupons.id
 
       my_coupons.description = 'A coupon flow that tracks the SmartSource RSS feed'
 
+      # an object that already has a Flow identitifer
+      # will be updated when `save` is again invoked
       my_coupons.save()
 
   * Retrieval ::
 
+      # specifiying an identifier will return the requested resource if it exists
       one_flow = flow.Flow.find(id = my_coupons.id) 
 
+      assert(one_flow.id == my_coupons.id)
+
+      # specifiying non-identifiers will return all matching resources
+      # as a `flow.DomainObjectIterator`
       many_flows = flow.Flow.find(name = 'My Coupons')
+
+      assert(many_flows.size() > 0)
 
   * Deletion ::
 
       my_coupons.delete()
+
+      assert(my_coupons is None)
 
 .. _ActiveRecord: http://martinfowler.com/eaaCatalog/activeRecord.html
 
