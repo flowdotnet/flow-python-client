@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-version = '0.1.0'
+version = '0.1.1'
 
 conf = {
   'name' : 'flow',
@@ -22,6 +22,8 @@ conf = {
     'License :: New-Style BSD',
     'Operating System :: OS Independent',
     'Programming Language :: Python'],
+
+  'test_suite': 'tests'
 }
 
 try:

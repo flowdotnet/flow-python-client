@@ -1,4 +1,4 @@
-"""Flow Platform Python Client Library
+"""Flow Platform: Python Client Library
 
 Copyright (c) 2010-2011, Flow Search Corporation
 
@@ -31,17 +31,21 @@ PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
 LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
 """
 
 __author__    = 'Jeffrey Olchovy <jeff@flow.net>'
-__version__   = '0.1.0'
+__version__   = '0.1.1'
 __copyright__ = 'Copyright (c) 2010-2011 Flow Search Corporation' 
 __license__   = 'New-style BSD'
 
-import os, sys, logging
+import __builtin__
+import os, sys
+import logging
 import httplib, urllib
-import time, hashlib
-import json
+import hashlib
+import time
+import json, xml.dom.minidom
 
 API_HOST = 'localhost'
 API_PORT = 8080
@@ -62,13 +66,24 @@ class RestClient(object):
     'DELETE'  : { 'Accept' : MIME_JSON }}
 
   def __init__(self, key, secret, actor=None):
+    """
+    **Args:**
+      key (str): Application key
+      secret (str): Application secret
+     
+    **Keyword Args:**
+      actor (str): ID of Identity or Application on whose behalf calls will be made
+
+    **Returns:**
+      RestClient
+
+    """
     if actor is not None: self.actor = actor
 
     self.key = key
     self.secret = secret
-    self.opts = dict([('headers', {}), ('params', {})])
+    self.opts = dict([('headers', {}), ('qs', {})])
     self.logger = logging.getLogger('flow.RestClient')
-    self.set_logger_level(logging.DEBUG)
 
   def set_actor(self, actor):
     """Make requests on behalf of this identity / application."""
@@ -77,13 +92,20 @@ class RestClient(object):
   def set_opts(self, opts):
     """Global options applied to all requests.
 
-    These options can be overidden at request-time.
+    .. note::
+      These options can be overidden per request.
 
-    opts -- a dictionary of HTTP headers and query parameters
+      >>> rest_client.http_get('/user', 'GET', {'hints': 0})
+
+    **Args:**
+      opts (dict): HTTP headers and query parameters.
+
+    **Returns:**
+      void
 
     """
     if 'headers' not in opts: opts['headers'] = {}
-    if 'params' not in opts: opts['params'] = {}
+    if 'qs' not in opts: opts['qs'] = {}
 
     self.opts = opts
 
@@ -110,7 +132,11 @@ class RestClient(object):
   def _mk_signature(self, creds):
     """Build the SHA1 hash of the credentials headers.
     
-    creds -- the key-value pairs of the HTTP credentials headers
+    **Args:**
+      creds (dict): Key-value pairs of the HTTP credentials headers
+
+    **Returns:**
+      str -- value of request signature
     
     """
     md = hashlib.sha1()
@@ -125,26 +151,34 @@ class RestClient(object):
   def _mk_opts(self, opts):
     """Merge given opts with global opts.
     
-    opts -- dictionary of HTTP header and query paramter key-value pairs
+    **Args:**
+      opts (dict): HTTP header and query paramter key-value pairs
+
+    **Returns:**
+      dict
 
     """
     if 'headers' not in opts: opts['headers'] = {}
-    if 'params' not in opts: opts['params'] = {}
+    if 'qs' not in opts: opts['qs'] = {}
 
     opts['headers'].update(self.opts['headers'])
-    opts['params'].update(self.opts['params'])
+    opts['qs'].update(self.opts['qs'])
 
     return opts
 
   def _mk_headers(self, default, given):
-    """Supplement given headers with:
+    """Supplement a request's given headers with:
     
-    1. default headers
-    2. credentials headers
-    3. user-agent header (for tracking requests made from this lib)
+      1. default headers
+      2. credentials headers
+      3. user-agent header (used for tracking HTTP requests made from this library)
 
-    default -- the default key-value pairs for the given request method
-    given -- key-value pairs given at request time
+    **Args:**
+      default (dict): The default key-value pairs for the given request method
+      given (dict): The key-value pairs given at request time
+
+    **Returns:**
+      dict
 
     """
     if given:
@@ -155,59 +189,74 @@ class RestClient(object):
     headers['User-Agent'] = 'flow-python-client_%s' % __version__
     return dict(headers, **self._mk_creds())
 
-  def _mk_url(self, base, params):
+  def _mk_uri(self, uri, qs_params):
     """Append encoded query parameters to the uri path.
     
-    Positional arguments:
-    base -- the base uri part path as a string, minus the hostname, e.g. /user
-    params -- a key-value map of quer parameters
+    **Args:**
+      base (str): The base uri part path as a string, minus the hostname, e.g. /user
+      qs_params (dict): A key-value map of query parameters
+
+    **Returns:**
+      str
     
     """
-    if params:
-      return '%s?%s' % (base, urllib.urlencode(params))
-    else:
-      return base
+    parts = uri.split('?')
+    base = parts[0]
+    qs = parts[1] if len(parts) > 1 else None
 
-  def _mk_request(self, url, method, data=None, opts={}):
-    """Build a request's opts, url, and headers, and then execute it.
+    if qs and qs_params:
+      qs = '%s&%s' % (qs, urllib.urlencode(qs_params))
+      return '%s?%s' % (base, qs)
+
+    if qs_params:
+      return '%s?%s' % (base, urllib.urlencode(qs_params))
+
+    else:
+      return uri
+
+  def _mk_request(self, uri, method, data=None, opts={}):
+    """Build a request's opts, uri, and headers, and then execute it.
     
-    Positional arguments:
-    url -- API endpoint part path without url-encoded query parameters
-    method -- HTTP method
-    data -- data, as string, to be contained in request entity body
-    opts -- key-value pairs of HTTP headers and query parameters
+    **Args:**
+      uri (str): an API endpoint part path with or without url-encoded query parameters
+      method (str): HTTP method
+      data (str): data, as a string, to be placed in the request's entity body
+      opts (dict): key-value pairs of HTTP headers and query parameters
+
+    **Returns:**
+      str
 
     """
     opts = self._mk_opts(opts)
-    url = self._mk_url(url, opts['params'])
-    headers = self._mk_headers(
-        RestClient.DEFAULT_HEADERS[method], opts['headers'])
+    uri = self._mk_uri(uri, opts['qs'])
+    headers = self._mk_headers(RestClient.DEFAULT_HEADERS[method], opts['headers'])
 
-    return self.request(url, method, data, headers)
+    return self.request(uri, method, data, headers)
 
-  def request(self, url, method, data=None, headers={}):
+  def request(self, uri, method, data=None, headers={}):
     """Execute HTTP request against the Flow Platform API.
 
-    Returns the raw response string.
+    .. note::
+      All requests will be logged. See help(set_logger_handler).
 
-    All requests will be logged. See help(set_logger_handler).
+    **Args:**
+      uri (str): API endpoint with uri encoded query paramters
+      method (str): HTTP method
 
-    Positional arguments:
-    url -- API endpoint with url encoded query paramters
-    method -- HTTP method
-    data -- data, as string,to be contained in request entity body
-    headers -- HTTP headers
+    **Keyword Args:**
+      data (str): Request entity body
+      headers (dict): HTTP headers
 
     """
     data = data.encode('utf-8') if data else None
     conn = httplib.HTTPConnection(API_HOST + ':' + str(API_PORT))
-    conn.request(method, url, data, headers)
+    conn.request(method, uri, data, headers)
     response = conn.getresponse()
     response_str = response.read().decode('utf-8')
     self.logger.debug('\n'.join([
       '-- Begin REST Request --',
       'method> %s' % method,
-      'url> %s' % url,
+      'uri> %s' % uri,
       'entity_body>\n%s' % data,
       'headers>\n%s' % headers,
       'response>\n%s' % response_str,
@@ -215,55 +264,62 @@ class RestClient(object):
 
     return response_str
 
-  ### Raw data operations ###
-
-  def http_get(self, url, opts={}):
+  def http_get(self, uri, qs={}, headers={}):
     """Execute an HTTP GET request.
 
-    Positional arguments:
-    url -- API endpoint
-    opts -- key-value pairs of HTTP headers and query parameters
+    **Args:**
+      uri (str): API endpoint
+
+    **Keyword Args:**
+      opts (dict): Key-value pairs of HTTP headers and query parameters
 
     """
-    return self._mk_request(url, 'GET', None, opts)
+    return self._mk_request(uri, 'GET', None, {'qs': qs, 'headers': headers})
 
-  def http_post(self, url, data, opts={}):
+  def http_post(self, uri, data, qs={}, headers={}):
     """Execute an HTTP POST request.
 
-    Positional arguments:
-    url -- API endpoint
-    data -- data, as string,to be contained in request entity body
-    opts -- key-value pairs of HTTP headers and query parameters
+    **Args:**
+      uri (str): API endpoint
+      data (str): Request entity body
+
+    **Keyword Args:**
+      opts (dict): Key-value pairs of HTTP headers and query parameters
 
     """
-    return self._mk_request(url, 'POST', data, opts)
+    return self._mk_request(uri, 'POST', data, {'qs': qs, 'headers': headers})
 
-  def http_put(self, url, data, opts={}):
+  def http_put(self, uri, data, qs={}, headers={}):
     """Execute an HTTP PUT request.
 
-    Positional arguments:
-    url -- API endpoint
-    data -- data, as string,to be contained in request entity body
-    opts -- key-value pairs of HTTP headers and query parameters
+    **Args:**
+      uri (str): API endpoint
+      data (str): Request entity body
+
+    **Keyword Args:**
+      opts (dict): Key-value pairs of HTTP headers and query parameters
 
     """
-    return self._mk_request(url, 'PUT', data, opts)
+    return self._mk_request(uri, 'PUT', data, {'qs': qs, 'headers': headers})
 
-  def http_delete(self, url, data=None, opts={}):
+  def http_delete(self, uri, data=None, qs={}, headers={}):
     """Execute an HTTP DELETE request.
 
-    Positional arguments:
-    url -- API endpoint
-    data -- data, as string,to be contained in request entity body
-    opts -- key-value pairs of HTTP headers and query parameters
+    **Args:**
+      uri (str): API endpoint
+      data (str): Request entity body
+
+    **Keyword Args:**
+      opts (dict): Key-value pairs of HTTP headers and query parameters
 
     """
-    return self._mk_request(url, 'DELETE', data, opts)
+    return self._mk_request(uri, 'DELETE', data, {'qs': qs, 'headers': headers})
 
 class MarshalingRestClient(RestClient):
   """A handle to the Flow Platform RESTful API that can serialize
   and deserialize objects for easy CRUD and lookup operations
-  on the Flow Platform's domain objects."""
+  on Flow Platform domain objects."""
+
   def __init__(self, marshaler, key, secret, actor=None, is_active_client=True):
     if is_active_client: DomainObject.active_client = self
 
@@ -275,26 +331,34 @@ class MarshalingRestClient(RestClient):
     raise NotImplemented('Implementation of this method required.')
 
   def response_body(self, response):
-    """The return values of an HTTP request, without response metadata."""
+    """The return value of an HTTP request, without response metadata."""
     raise NotImplemented('Implementation of this method required.')
 
   def marshal(self, obj):
-    """Serialize an object into a raw data string."""
+    """Coerce an object into the marshaler's type kind."""
+    return self.marshaler.dump(obj)
+
+  def marshals(self, obj):
+    """Serialize an object into a string representation of the marsheler's type."""
     return self.marshaler.dumps(obj)
 
-  def unmarshal(self, data, obj=None):
+  def unmarshal(self, data, type=None):
+    """Coerce a marshaler's type kind into an object."""
+    return self.marshaler.load(data, type)
+
+  def unmarshals(self, data, type=None):
     """Deserialize a raw data string into an object."""
-    return self.marshaler.loads(data, obj)
+    return self.marshaler.loads(data, type)
 
   def create(self, cls, uri, data):
     """Create an instance of a domain object from an HTTP POST request."""
     response = self.http_post(uri, data)
-    return cls(**self.response_body(response))
+    return cls(**Marshaler.kargify(self.response_body(response)))
 
   def update(self, cls, uri, data):
     """Return an instance of a domain object from an HTTP PUT request."""
     response = self.http_put(uri, data)
-    return cls(**self.response_body(response))
+    return cls(**Marshaler.kargify(self.response_body(response)))
 
   def delete(self, cls, uri, data=None):
     """Remove a domain object via an HTTP DELETE request."""
@@ -304,49 +368,33 @@ class MarshalingRestClient(RestClient):
   def find_one(self, cls, uri):
     """Return a single instance of a domain object via an HTTP GET request."""
     response = self.http_get(uri)
-    return cls(**self.response_body(response))
+    return cls(**Marshaler.kargify(self.response_body(response)))
 
   def find_many(self, cls, uri, data=None, **kargs):
-    """Return a list of instances of a single type of domain object that satisfies..
-
-    """
-    opts = {'params': {'criteria': self.marshal(data)}} if data else {'params': {}}
-    opts['params'].update(kargs)
-    results = self.response_body(self.http_get(uri, opts))
-
-    return [cls(**result) for result in results]
+    """Return a list of instances of a single type of domain object that satisfies the given criteria."""
+    qs = {'criteria': self.marshals(data)} if data else {}
+    qs.update(kargs)
+    return self.response_body(self.http_get(uri, qs=qs))
 
   def search(self, *cls, **kargs):
-    """Return a list of instances of domain objects that satisfies the given full-text search query.
-
-    """
+    """Return a list of instances of domain objects that satisfy the given full-text search query."""
     types = ','.join([c.type_hint() for c in list(cls)])
-    opts = {'params': kargs}
-    opts['params'].update({'type': types})
-    results = self.response_body(self.http_get('/search', opts))['results']
-
-    return [DomainObjectFactory.get_instance(result['type'], **result['value']) \
-        for result in results['value']]
+    qs = kargs
+    qs.update({'type': types})
+    results = self.response_body(self.http_get('/search', qs=qs))
+    return results
 
 class JsonRestClient(MarshalingRestClient):
   """A marshaling REST Client that uses JSON as its data interchange format."""
+
   def __init__(self, key, secret, actor=None):
     super(JsonRestClient, self).__init__(JsonMarshaler(), key, secret, actor)
-    self.set_opts({'params': {'hints': 1}})
-
-  def _parse_unicode(self, data):
-    if isinstance(data, unicode):
-      return str(data)
-    elif isinstance(data, dict):
-      return dict(map(self._parse_unicode, data.iteritems()))
-    elif isinstance(data, (list, tuple, set, frozenset)):
-      return type(data)(map(self._parse_unicode, data))
-    else:
-      return data
+    self.logger = logging.getLogger('flow.JsonRestClient')
+    self.set_opts({'qs': {'hints': 1}})
 
   def _parse_response(self, raw_response):
     try:
-      return self._parse_unicode(json.loads(raw_response))
+      return self.marshaler.loads(raw_response, 'map')
 
     except ValueError as e:
       raise UnparsableResponseError(raw_response, 'JSON response data could not be parsed')
@@ -356,9 +404,9 @@ class JsonRestClient(MarshalingRestClient):
       response = self._parse_response(response)
 
     return ('head' in response
-      and 'body' in response
-      and 'ok' in response['head']
-      and response['head']['ok'])
+        and 'body' in response
+        and 'ok' in response['head']
+        and response['head']['ok'])
 
   def response_body(self, response):
     if isinstance(response, basestring):
@@ -369,38 +417,82 @@ class JsonRestClient(MarshalingRestClient):
     else:
       raise JsonResponseError(response, 'Response status not \'ok\'')
 
+  def find_many(self, cls, uri, data=None, **kargs): 
+    results = super(JsonRestClient, self).find_many(cls, uri, data, **kargs)
+    return DomainObjectIterator([cls(**Marshaler.kargify(result)) for result in results])
+
+  def http_post(self, uri, data, qs={}, headers={}):
+    headers['Content-type'] = RestClient.MIME_JSON
+    return super(JsonRestClient, self).http_post(uri, data, qs, headers) 
+
+  def http_put(self, uri, data, qs={}, headers={}):
+    headers['Content-type'] = RestClient.MIME_JSON
+    return super(JsonRestClient, self).http_put(uri, data, qs, headers) 
+
+  def http_delete(self, uri, data=None, qs={}, headers={}):
+    if data: headers['Content-type'] = RestClient.MIME_JSON
+    return super(JsonRestClient, self).http_delete(uri, data, qs, headers) 
+
 class XmlRestClient(MarshalingRestClient):
   """A marshaling REST Client that uses XML as its data interchange format."""
+
   def __init__(self, key, secret, actor=None):
     super(XmlRestClient, self).__init__(XmlMarshaler(), key, secret, actor)
+    self.logger = logging.getLogger('flow.XmlRestClient')
     self.set_opts({
-        'params': {'hints': 1},
-        'headers': {
-          'Content-type': RestClient.MIME_XML,
-          'Accept': RestClient.MIME_XML}})
+        'qs': {'hints': 1},
+        'headers': {'Accept': RestClient.MIME_XML}})
 
   def _parse_response(self, raw_response):
-    raise UnparsableResponseError(raw_response, 'XML response data could not be parsed')
+    try:
+      return self.marshaler.loads(raw_response, 'map')
+    except Exception as e:
+      #print e
+      raise UnparsableResponseError(raw_response, 'XML response data could not be parsed')
 
   def response_ok(self, response):
     if isinstance(response, basestring):
       response = self._parse_response(response)
 
-    raise XmlResponseError(response, 'Response status not \'ok\'')
+    return ('head' in response
+        and 'body' in response
+        and 'ok' in response['head']
+        and response['head']['ok'] == 'true')
 
   def response_body(self, response):
     if isinstance(response, basestring):
       response = self._parse_response(response)
 
     if self.response_ok(response):
-      return response
+      return response['body']
     else:
       raise XmlResponseError(response, 'Response status not \'ok\'')
 
+  def find_many(self, cls, uri, data=None, **kargs): 
+    response_body = super(XmlRestClient, self).find_many(cls, uri, data, **kargs)
+    result = response_body['results']['result']
+
+    if isinstance(result, list):
+      return DomainObjectIterator(result)
+    else:
+      return DomainObjectIterator([result])
+
+  def http_post(self, uri, data, qs={}, headers={}):
+    headers['Content-type'] = RestClient.MIME_XML
+    return super(XmlRestClient, self).http_post(uri, data, qs, headers) 
+
+  def http_put(self, uri, data, qs={}, headers={}):
+    headers['Content-type'] = RestClient.MIME_XML
+    return super(XmlRestClient, self).http_put(uri, data, qs, headers) 
+
+  def http_delete(self, uri, data=None, qs={}, headers={}):
+    if data: headers['Content-type'] = RestClient.MIME_XML
+    return super(XmlRestClient, self).http_delete(uri, data, qs, headers) 
+
 class UnparsableResponseError(Exception):
-  def __init__(self, raw_response, message=None):
+  def __init__(self, raw_response, value=None):
     self.response = raw_response
-    self.message = message if message else ''
+    self.value = value if value else ''
 
 class ParsableResponseError(Exception):
   def __init__(self, response, description=None):
@@ -437,120 +529,354 @@ class XmlResponseError(ParsableResponseError):
     pass
 
 class Marshaler(object):
+  @staticmethod
+  def kargify(kargs, encoding='ascii'):
+    return dict([(k.encode(encoding), v) for k, v in kargs.iteritems()])
+
+  def dump(self, obj):
+    raise NotImplemented('Implementation of this method required.')
+
   def dumps(self, obj):
     raise NotImplemented('Implementation of this method required.')
 
-  def loads(self, obj, data):
+  def load(self, data, type=None):
+    raise NotImplemented('Implementation of this method required.')
+
+  def loads(self, data, type=None):
     raise NotImplemented('Implementation of this method required.')
 
 class JsonMarshaler(Marshaler):
-  def _mk_field(self, k, v):
-    if isinstance(v, dict):
-      return (k, v)
-    elif isinstance(v, list):
-      return (k, {'type': 'list', 'value': v})
-    elif isinstance(v, bool):
-      return (k, {'type': 'boolean', 'value': v})
-    elif isinstance(v, int):
-      return (k, {'type': 'integer', 'value': v})
-    elif isinstance(v, float):
-      return (k, {'type': 'float', 'value': v})
-    elif(isinstance(v, basestring)):
-      return (k, {'type': 'string', 'value': v})
+  def dump(self, obj):
+    is_labelled = lambda x: isinstance(x, tuple) and isinstance(x[0], basestring)
+    is_typed = lambda x: isinstance(x, dict) and 'type' in x and 'value' in x
+
+    if is_labelled(obj) and is_typed(obj[1]):
+      return dict([(obj[0], obj[1])])
+    elif is_typed(obj):
+      return obj
+    elif isinstance(obj, DomainObject):
+      return dict([(k, self.dump(v)) for k, v in obj.get_members().iteritems()])
+    elif isinstance(obj, dict):
+      return {'type': 'map', 'value': dict([(k, self.dump(v) if not is_typed(v) else v) for k, v in obj.iteritems()])}
+    elif isinstance(obj, set):
+      return {'type': 'set', 'value': list(obj)}
+    elif isinstance(obj, list):
+      return {'type': 'list', 'value': obj}
+    elif isinstance(obj, bool):
+      return {'type': 'boolean', 'value': obj}
+    elif isinstance(obj, int):
+      return {'type': 'integer', 'value': obj}
+    elif isinstance(obj, float):
+      return {'type': 'float', 'value': obj}
+    elif(isinstance(obj, basestring)):
+      return {'type': 'string', 'value': obj}
     else:
-      return (k, None)
+      return None 
 
   def dumps(self, obj):
+    return json.dumps(self.dump(obj))
+
+  def load(self, data, type=None):
+    is_typed = lambda x: isinstance(x, dict) and 'type' in x and 'value' in x
+
+    if isinstance(data, dict):
+      if not type and 'type' in data:
+        type = data['type']
+
+      if type and 'value' in data:
+        data = data['value']
+
+    if not type:
+      raise ValueError('Type must be specified in order to unmarshal %s' % data)
+
+    if type in DomainObjectFactory.TYPES and isinstance(data, dict):
+      data = dict([(str(k), self.load(v) if is_typed(v) else v) for k, v in data.iteritems()])
+      return DomainObjectFactory.get_instance(type, **data)
+
+    elif (type == 'map' or type == 'sortedMap') and isinstance(data, dict):
+      return dict([(k, self.load(v) if is_typed(v) else v) for k, v in data.iteritems()])
+
+    elif (type == 'list' or type == 'set' or type == 'sortedSet') and isinstance(data, list):
+      return [self.load(i) if is_typed(i) else i for i in data]
+
+    elif (type == 'float' or type == 'integer' or type == 'boolean' or type == 'string'):
+      return data
+
+    else:
+      return {'type': type, 'value': data}
+
+  def loads(self, data, type=None):
+    return self.load(json.loads(data), type)
+
+class XmlMarshaler(Marshaler):
+  def dump(self, obj, document=None):
+    is_primitive = lambda x: True in [isinstance(x, type) for type in [basestring, int, float]]
+    is_labelled = lambda x: isinstance(x, tuple) and isinstance(x[0], basestring)
+    is_typed = lambda x: isinstance(x, dict) and 'type' in x and 'value' in x
+
+    if not document:
+      dom = xml.dom.minidom.getDOMImplementation()
+      document = dom.createDocument(None, 'root', None)
+
     if isinstance(obj, DomainObject):
-      kv_pairs = obj.get_members().iteritems()
+      return self.dump((obj.type_hint(), {'type': obj.type_hint(), 'value': obj.get_members()}), document)
+
+    elif is_labelled(obj) and is_typed(obj[1]):
+      e = self.dump(obj[1]['value'], document)
+      e.tagName = obj[0]
+      e.setAttribute('type', obj[1]['type'])
+
+      if obj[1]['type'] == 'permissions':
+        for child in e.childNodes:
+          if isinstance(child, xml.dom.minidom.Element) and child.tagName in obj[1]['value']:
+            child.setAttribute('access', obj[1]['value'][child.tagName]['access'])
+
+      return e
+
+    elif is_labelled(obj):
+      if isinstance(obj[1], DomainObject):
+        return self.dump((obj[0], {'type': obj[1].type_hint(), 'value': obj[1].get_members()}), document)
+      if isinstance(obj[1], dict):
+        return self.dump((obj[0], {'type': 'map', 'value': obj[1]}), document)
+      elif isinstance(obj[1], set):
+        return self.dump((obj[0], {'type': 'set', 'value': obj[1]}), document)
+      elif isinstance(obj[1], list):
+        return self.dump((obj[0], {'type': 'list', 'value': obj[1]}), document)
+      elif isinstance(obj[1], bool):
+        return self.dump((obj[0], {'type': 'boolean', 'value': obj[1]}), document)
+      elif isinstance(obj[1], int):
+        return self.dump((obj[0], {'type': 'integer', 'value': obj[1]}), document)
+      elif isinstance(obj[1], float):
+        return self.dump((obj[0], {'type': 'float', 'value': obj[1]}), document)
+      elif(isinstance(obj[1], basestring)):
+        return self.dump((obj[0], {'type': 'string', 'value': obj[1]}), document)
+      else:
+        raise TypeError('Cannot dump value of unknown type %s' % obj[1])
+
     elif isinstance(obj, dict):
-      kv_pairs = obj.iteritems()
+      e = document.createElement('items')
+
+      for i, j in obj.iteritems():
+        child = self.dump((i, j), document)
+        e.appendChild(child)
+        e.setAttribute('type', 'map')
+
+      return e
+
+    elif isinstance(obj, set):
+      e = document.createElement('items')
+
+      for i in obj:
+        child = self.dump(('item', i), document)
+        e.appendChild(child)
+        e.setAttribute('type', 'set')
+
+      return e
+
+    elif isinstance(obj, list):
+      e = document.createElement('items')
+
+      for i in obj:
+        child = self.dump(('item', i), document)
+        e.appendChild(child)
+        e.setAttribute('type', 'list')
+
+      return e
+
+    elif isinstance(obj, bool):
+      e = document.createElement('item')
+      txt = document.createTextNode(str(obj).lower())
+      e.appendChild(txt)
+
+      return e
+
+    elif is_primitive(obj):
+      e = document.createElement('item')
+      txt = document.createTextNode(str(obj))
+      e.appendChild(txt)
+
+      return e
+
     else:
       raise ValueError('Cannot marshal object %s' % obj)
 
-    json_dict = dict([self._mk_field(k, v) for k, v in kv_pairs])
-
-    return json.dumps(json_dict)
-
-  def loads(self, data, obj=None):
-    if isinstance(obj, DomainObject):
-      obj.set_members(**json.loads(data))
-    else:
-      obj = json.loads(data)
-
-    return obj
-
-class XmlMarshaler(Marshaler):
-  def _mk_elem(self, k, v):
-    """
-    dom = dom.getDocumentImplementation()
-    if isinstance(v, dict):
-      parent = document.createElement(k)
-      for k, v in dict.iteritems():
-        child = self._mk_elem(k, v)
-        parent.appendChild(child)
-    elif isinstance(v, list):
-      parent = document.createElement(k)
-      for v in list:
-        child = self._mk_elem('item', v)
-        parent.appendChild(child)
-    elif:
-      parent = document.createElement(k)
-    elif isinstance(v, bool):
-      return (k, {'type': 'boolean', 'value': v})
-    elif isinstance(v, int):
-      return (k, {'type': 'integer', 'value': v})
-    elif isinstance(v, float):
-      return (k, {'type': 'float', 'value': v})
-    elif(isinstance(v, basestring)):
-      return (k, {'type': 'string', 'value': v})
-    else:
-      return (k, None)
-    """
-    pass
-
   def dumps(self, obj):
-    """
-    doc = xml.Document()
-    """
-    pass
+    return self.dump(obj).toprettyxml(indent='  ')
+
+  def loads(self, data, type=None):
+    return self.load(xml.dom.minidom.parseString(data), type)
+
+  def load(self, data, type=None):
+    if isinstance(data, xml.dom.minidom.Document):
+      return self.load(data.documentElement, type)
+
+    if data.hasAttribute('type'):
+      type = data.getAttribute('type') if not type else type
+
+    if type and isinstance(data, xml.dom.minidom.Element):
+      if type in DomainObjectFactory.TYPES:
+        return DomainObjectFactory.get_instance(type, **self.load(data, 'map'))
+
+      elif (type == 'map' or type == 'sortedMap'):
+        values = {}
+
+        if data.hasChildNodes():
+          for child in data.childNodes:
+            if isinstance(child, xml.dom.minidom.Element):
+              key = child.nodeName.encode('ascii')
+              value = self.load(child)
+
+              if not key in values:
+                values[key] = value
+
+              else:
+                get_type = __builtin__.type
+                current = values[key]
+
+                # this will bork fucked up xml data structures such as:
+                #
+                # <xs>
+                #   <x><a type="list"><i>2</i></a></x>
+                #   <x><b type="list"><i>3</i></b></x>
+                # </xs>
+                #
+                # but you deserve it
+                if get_type(current) == get_type([]) and len(current):
+                  values[key].append(value)
+
+                else:
+                  values[key] = [current, value]
+
+        return values
+
+      elif type == 'list':
+        if data.hasChildNodes():
+          return [self.load(i) for i in data.childNodes if isinstance(i, xml.dom.minidom.Element)]
+        else:
+          return []
+
+      elif type == 'set' or type == 'sortedSet':
+        if data.hasChildNodes():
+          return {
+            'type': type,
+            'value': [self.load(i) for i in data.childNodes if isinstance(i, xml.dom.minidom.Element)]
+          }
+
+        else:
+          return {'type': type, 'value': []}
+
+      elif type == 'float' and data.hasChildNodes():
+        data.normalize()
+        children = [child.nodeValue for child in data.childNodes if isinstance(child, xml.dom.minidom.Text)]
+        value = ''.join(children)
+
+        return float(value)
+
+      elif type == 'integer' and data.hasChildNodes():
+        data.normalize()
+        children = [child.nodeValue for child in data.childNodes if isinstance(child, xml.dom.minidom.Text)]
+        value = ''.join(children)
+
+        return int(value)
+
+      elif type == 'boolean' and data.hasChildNodes():
+        data.normalize()
+        children = [child.nodeValue for child in data.childNodes if isinstance(child, xml.dom.minidom.Text)]
+        value = ''.join(children)
+
+        return bool(value)
+
+      elif type == 'string' and data.hasChildNodes():
+        data.normalize()
+        children = [child.nodeValue for child in data.childNodes if isinstance(child, xml.dom.minidom.Text)]
+        value = ''.join(children)
+
+        return value
+
+      elif type == 'permissions' and data.hasChildNodes():
+        data.normalize()
+        value = self.load(data, type='map')
+
+        for child in data.childNodes:
+          if isinstance(child, xml.dom.minidom.Element) and child.tagName in value:
+            value[child.tagName]['access'] = child.getAttribute('access')
+
+        return DomainObjectMemberFactory.get_instance('permissions', value)
+
+      elif data.hasChildNodes():
+        try:
+          data.normalize()
+          children = data.childNodes
+
+          if len([child for child in children if isinstance(child, xml.dom.minidom.Element)]):
+            value = self.load(data, type='map')
+          else:
+            value = self.load(data, type='string')
+
+          return DomainObjectMemberFactory.get_instance(type, value)
+
+        except Exception as e:
+          #print e
+          raise Exception('Cannot load object of type %s with value %s' % (type, data))
+
+    elif isinstance(data, xml.dom.minidom.Element) and data.hasChildNodes():
+      children = data.childNodes
+
+      for child in children:
+        if isinstance(child, xml.dom.minidom.Element):
+          return self.load(data, type='map')
+
+      return self.load(data, type='string')
 
 class DomainObject(object):
   """A base abstract class for Flow Domain Objects."""
+
+  # latest instantiated marshaling REST client
   active_client = None
 
-  members = [
-      'id',
-      'creator',
-      'creationDate',
-      'lastEditDate']
+  # data member mapping of name -> type
+  members = {
+      'id'            : 'id',
+      'creatorId'     : 'id',
+      'creationDate'  : 'date',
+      'lastEditorId'  : 'id',
+      'lastEditDate'  : 'date'}
 
   def __init__(self, **kargs):
     self.set_members(**kargs)
 
   def __getattr__(self, name):
     if name in self.__dict__:
-      value = self.__dict__[name]
-
-      if isinstance(value, dict) \
-        and 'value' in value \
-        and not isinstance(value['value'], dict):
-        return value['value']
-      else:
-        return value
-    elif name in self.__class__.members:
+      return self.__dict__[name]
+    elif name in self.__class__.members.keys():
       return None
     else:
       raise AttributeError()
 
   def __setattr__(self, name, value):
-    if name in self.__class__.members:
-      self.__dict__[name] = value
+    if name in self.__class__.members.keys() and value is not None:
+      type = self.__class__.members[name]
+
+      if type in DomainObjectFactory.TYPES and isinstance(value, DomainObject):
+        self.__dict__[name] = value
+
+      elif type in DomainObjectFactory.TYPES and isinstance(value, dict):
+        self.__dict__[name] = DomainObjectFactory.get_instance(type, **value)
+
+      elif isinstance(value, dict) and 'type' in value and 'value' in value and value['type'] == type:
+        self.__dict__[name] = value
+
+      else:
+        self.__dict__[name] = DomainObjectMemberFactory.get_instance(type, value)
+
+    elif name in self.__class__.members.keys():
+      self.__delattr__(name)
+
     else:
       raise AttributeError()
 
   def __delattr__(self, name):
-    if name in self.__class__.members:
+    if name in self.__class__.members.keys():
       self.__dict__[name] = None
     else:
       raise AttributeError()
@@ -572,12 +898,12 @@ class DomainObject(object):
     """Return a key-value map of the domain object's data members."""
     return dict(filter(
         lambda x: x[1] is not None,
-        [(k, self.__getattr__(k)) for k in self.__class__.members]))
+        [(k, self.__getattr__(k)) for k in self.__class__.members.keys()]))
 
   def set_members(self, **kargs):
     """Set the data members of the domain object to the given key-value pairs."""
     for k, v in kargs.items():
-      if k in self.__class__.members:
+      if k in self.__class__.members.keys():
         self.__setattr__(k, v)
 
   def get_uid(self):
@@ -594,70 +920,66 @@ class DomainObject(object):
   def save(self, client=None):
     """Persist an object in the Flow Platform.
 
-    Positional arguments:
-    client -- (optional) marshaling client, defaults to current active client
+    .. note::
+      ''
+
+    **Keyword args:**
+      client (MarshalingClient): A marshaling REST client -- defaults to the current active client
 
     """
-    active_client = self.__class__.active_client if not client else client
-
-    if not active_client:
-      raise ValueError('An active REST client is required')
-
+    active_client = self.resolve_client(client)
     uid = self.get_uid()
     id = self.id
 
-    # remove id member before marshaling object to avoid
-    # '\'id\' is not a member of this resource' messages
+    # remove id member before marshaling to avoid `'id' is not a member of this resource` messages
     del self.id
 
-    data = active_client.marshal(self)
+    data = active_client.marshals(self)
     self.id = id 
 
     if not uid:
       uri = self.__class__.class_bound_path()
-      return active_client.create(self.__class__, uri, data)
+      new = active_client.create(self.__class__, uri, data)
     else:
       uri = self.__class__.instance_bound_path(uid)
-      return active_client.update(self.__class__, uri, data)
+      new = active_client.update(self.__class__, uri, data)
+
+    self.set_members(**new.get_members())
+    return self
 
   def update(self, client=None, member=None):
     """Persist an object or one of its members in the Flow Platform.
 
-    Positional arguments:
-    client -- (optional) marshaling client, defaults to current active client
-    member -- (optional) name of data member to be updated
+    **Keyword args:**
+      client (MarshalingClient): A marshaling REST client -- defaults to the current active client
+      member (str): The name of data member to be updated (optional)
 
     """
-    active_client = self.__class__.active_client if not client else client
-
-    if not active_client:
-      raise ValueError('An active REST client is required')
-
+    active_client = self.resolve_client(client)
     uid = self.get_uid()
     
     if not uid:
       raise Exception('Cannot update without \'id\' member set')
 
     if not member:
-      return self.save(active_client)
+      new = self.save(active_client)
     else:
       uri = self.__class__.instance_bound_path(uid) + '/' + member
-      data = active_client.marshal(self)
-      return active_client.update(self.__class__, uri, data)
+      data = active_client.marshals(self)
+      new = active_client.update(self.__class__, uri, data)
 
-  def delete(self, client=active_client, member=None):
+    self.set_members(**new.get_members())
+    return self
+
+  def delete(self, client=None, member=None):
     """Remove an object or one of its members from the Flow Platform.
 
-    Positional arguments:
-    client -- (optional) marshaling client, defaults to current active client
-    member -- (optional) name of data member to be deleted
+    **Keyword args:**
+      client (MarshalingClient): A marshaling REST client -- defaults to the current active client
+      member (str): The name of a data member to be deleted (optional)
 
     """
-    active_client = self.__class__.active_client if not client else client
-
-    if not active_client:
-      raise ValueError('An active REST client is required')
-
+    active_client = self.resolve_client(client)
     uid = self.get_uid()
 
     if not uid:
@@ -665,11 +987,32 @@ class DomainObject(object):
 
     if not member:
       uri = self.__class__.instance_bound_path(uid)
+
+      """
+      if active_client.delete(self.__class__, uri):
+        self.set_members(**dict())
+
+      return self
+      """
       return active_client.delete(self.__class__, uri)
+
     else:
       uri = self.__class__.instance_bound_path(uid) + '/' + member
-      data = active_client.marshal(self)
-      return active_client.delete(self.__class__, uri, data)
+      data = active_client.marshals(self)
+
+      if active_client.delete(self.__class__, uri, data):
+        self.__delattr__(member)
+
+      return self
+
+  @classmethod
+  def resolve_client(cls, client):
+    active_client = cls.active_client if not client else client
+
+    if not active_client:
+      raise ValueError('An active REST client is required')
+
+    return active_client
 
   @classmethod
   def type_hint(cls):
@@ -678,17 +1021,17 @@ class DomainObject(object):
 
   @classmethod
   def class_bound_path(cls):
-    """The uri part path that reflects the entire class of this type."""
+    """The uri path that governs all instances of this type."""
     return '/' + cls.type_hint()
 
   @classmethod
   def instance_bound_path(cls, id):
-    """The uri part path that reflects a single instance of this type."""
+    """The uri path that governs a single instance of this type."""
     return '/'.join([cls.class_bound_path(), id]) 
 
   @classmethod
   def context_bound_path(cls, context=None):
-    """The uri part path that reflects a subset of class instances bounded by some specified context."""
+    """The uri path that governs a subset of instances of this type, bounded by some specified context."""
     if not context:
       return cls.class_bound_path()
     else:
@@ -698,22 +1041,24 @@ class DomainObject(object):
   def find(cls, client=None, **kargs):
     """Find instances of this class in the Flow Platform.
     
-    Positional arguments:
-    client -- (optional) marshaling client, defaults to current active client
-    kargs -- one of query or filter, can set all or none of offset, limit, sort, order
+    **Keyword args:**
+      client (MarshalingClient): A marshaling REST client -- defaults to the current active client
+      kargs (dict): dictionary containing one of 'query' or 'filter', \
+          and all or none of 'offset', 'limit', 'sort', and 'order'
 
     """
-    active_client = cls.active_client if not client else client
-
-    if not active_client:
-      raise ValueError('An active REST client is required')
+    active_client = cls.resolve_client(client)
 
     if 'id' in kargs:
-      uri = cls.instance_bound_path(kargs.pop('id'))
+      id = kargs.pop('id')
+      value = id['value'] if isinstance(id, dict) and 'type' in id and 'value' in id else id
+      uri = cls.instance_bound_path(value)
       return active_client.find_one(cls, uri)
     else:
-      if 'bucketId' in kargs:
-        uri = cls.context_bound_path(kargs.pop('bucketId'))
+      if 'flowId' in kargs:
+        flow_id = kargs.pop('flowId')
+        value = flow_id['value'] if isinstance(flow_id, dict) and 'type' in flow_id and 'value' in flow_id else flow_id
+        uri = cls.context_bound_path(value)
       else:
         uri = cls.class_bound_path()
 
@@ -723,73 +1068,85 @@ class DomainObject(object):
       return active_client.find_many(cls, uri, kargs, **opts)
 
 class Application(DomainObject):
-  """A user generated application comprised of a template and a hierarchy of buckets."""
-  members = DomainObject.members + [
-      'name',
-      'displayName',
-      'description',
-      'email',
-      'url',
-      'icon',
-      'isDiscoverable',
-      'isInviteOnly',
-      'applicationTemplate',
-      'permissions']
+  """A user generated application comprised of a template and a hierarchy of flows."""
+
+  members = dict(DomainObject.members.items() + [
+      ('name', 'string'),
+      ('displayName', 'string'),
+      ('description', 'string'),
+      ('email', 'string'),
+      ('url', 'url'),
+      ('icon', 'url'),
+      ('isDiscoverable', 'boolean'),
+      ('isInviteOnly', 'boolean'),
+      ('applicationTemplate', 'applicationTemplate'),
+      ('flowRefs', 'set'),
+      ('permissions', 'permissions')])
 
   def __init__(self, **kargs):
     super(Application, self).__init__(**kargs)
 
-class Bucket(DomainObject):
+class Flow(DomainObject):
   """A container for drops."""
-  members = DomainObject.members + [
-      'name',
-      'description',
-      'path',
-      'filter',
-      'location',
-      'local',
-      'template',
-      'icon',
-      'permissions',
-      'dropPermissions']
+
+  members = dict(DomainObject.members.items() + [
+      ('name', 'string'),
+      ('description', 'string'),
+      ('path', 'path'),
+      ('filter', 'string'),
+      ('location', 'location'),
+      ('local', 'boolean'),
+      ('template', 'constraints'),
+      ('icon', 'url'),
+      ('permissions', 'permissions'),
+      ('dropPermissions', 'permissions')])
 
   def __init__(self, **kargs):
-    super(Bucket, self).__init__(**kargs)
+    super(Flow, self).__init__(**kargs)
 
 class Comment(DomainObject):
-  """A user generated comment around a drop or bucket."""
-  members = DomainObject.members + [
-      'title',
-      'description',
-      'text',
-      'bucketId',
-      'dropId',
-      'parentId',
-      'topParentId']
+  """A user generated comment associated with a drop or flow."""
+
+  members = dict(DomainObject.members.items() + [
+      ('title', 'string'),
+      ('description', 'string'),
+      ('text', 'string'),
+      ('flowId', 'id'),
+      ('dropId', 'id'),
+      ('parentId', 'id'),
+      ('topParentId', 'id')])
 
   def __init__(self, **kargs):
     super(Comment, self).__init__(**kargs)
 
 class Drop(DomainObject):
-  """An atomic piece of system data with map-like behavior."""
-  members = DomainObject.members + [
-      'bucketId',
-      'path',
-      'elems']
+  """An atomic unit of platform data with map-like behavior."""
+
+  members = dict(DomainObject.members.items() + [
+      ('flowId', 'id'),
+      ('path', 'path'),
+      ('elems', 'map'),
+      ('flags', 'flags'),
+      ('flag', 'string'),
+      ('ratings', 'rating'),
+      ('rating', 'integer'),
+      ('weight', 'integer')])
+
+  FLAGS = ['adult', 'spam']
 
   def __init__(self, **kargs):
     super(Drop, self).__init__(**kargs)
 
   def get_uid(self):
-    bucket_id = self.__getattr__('bucketId')
+    flow_id = self.__getattr__('flowId')
     id = self.__getattr__('id')
 
-    if isinstance(bucket_id, basestring):
-      bucket_id = bucket_id
-    elif isinstance(bucket_id, dict) and 'value' in bucket_id:
-      bucket_id = bucket_id['value']
+    if isinstance(flow_id, basestring):
+      flow_id = flow_id
+    elif isinstance(flow_id, dict) and 'value' in flow_id:
+      flow_id = flow_id['value']
     else:
-      bucket_id = None
+      flow_id = None
 
     if isinstance(id, basestring):
       id = id
@@ -798,74 +1155,172 @@ class Drop(DomainObject):
     else:
       id = None
 
-    if not bucket_id or not id:
+    if not flow_id or not id:
       return None
     else:
-      return '%s/%s' % (bucket_id, id)
+      return '%s/%s' % (flow_id, id)
+
+  def flag(self, value, client=None):
+    active_client = self.resolve_client(client)
+    uid = self.get_uid()
+    value = value.lower()
+
+    if value not in Drop.FLAGS:
+      raise ValueError('Unsupported flag value')
+
+    if not uid:
+      raise ValueError('Valid id required')
+
+    flag = Drop(flag = value)
+    uri = self.instance_bound_path(uid)
+    data = active_client.marshals(flag)
+    response = active_client.http_put(uri, data)
+
+    new = self.__class__(**Marshaler.kargify(active_client.response_body(response)))
+    self.set_members(**new.get_members())
+    return self
+
+  def rate(self, value, client=None):
+    active_client = self.resolve_client(client)
+    uid = self.get_uid()
+
+    if value < 0 or value > 10: 
+      raise ValueError('Unsupported rating value')
+
+    if not uid:
+      raise ValueError('Valid id required')
+
+    rating = Drop(rating = value)
+    uri = self.instance_bound_path(uid)
+    data = active_client.marshals(rating)
+    response = active_client.http_put(uri, data)
+
+    new = self.__class__(**Marshaler.kargify(active_client.response_body(response)))
+    self.set_members(**new.get_members())
+    return self
+
+  def weight(self, value, client=None):
+    active_client = self.resolve_client(client)
+    uid = self.get_uid()
+
+    if value < 0 or value > 1000: 
+      raise ValueError('Unsupported weight value')
+
+    if not uid:
+      raise ValueError('Valid id required')
+
+    weight = Drop(weight = value)
+    uri = self.instance_bound_path(uid)
+    data = active_client.marshals(weight)
+    response = active_client.http_put(uri, data)
+
+    new = self.__class__(**Marshaler.kargify(active_client.response_body(response)))
+    self.set_members(**new.get_members())
+    return self
+
+class Enum(DomainObject):
+  """A flow that is a container for enumerable reference values."""
+
+  members = dict(DomainObject.members.items() + [
+      ('name', 'string'),
+      ('path', 'path'),
+      ('values', 'list'),
+      ('permissions', 'permissions')])
+
+  def __init__(self, **kargs):
+    super(Enum, self).__init__(**kargs)
 
 class File(DomainObject):
-  """A reference to file that is stored on 'http://file.flow.net'."""
-  members = DomainObject.members + [
-      'name',
-      'mimeType',
-      'contents']
+  """A reference to a file that is stored on the Flow Platform file server."""
+
+  members = dict(DomainObject.members.items() + [
+      ('name', 'string'),
+      ('mimeType', 'string'),
+      ('contents', 'bytes')])
 
   def __init__(self, **kargs):
     super(File, self).__init__(**kargs)
 
 class Group(DomainObject):
   """A collection of identities that can act as a single persona."""
-  members = DomainObject.members + [
-      'name',
-      'displayName',
-      'identities',
-      'permissions',
-      'identityPermissions']
+
+  members = dict(DomainObject.members.items() + [
+      ('name', 'string'),
+      ('displayName', 'string'),
+      ('identities', 'set'),
+      ('permissions', 'permissions'),
+      ('identityPermissions', 'permissions')])
 
   def __init__(self, **kargs):
     super(Group, self).__init__(**kargs)
 
 class Identity(DomainObject):
   """A user's persona."""
-  members = DomainObject.members + [
-      'firstName',
-      'lastName',
-      'alias',
-      'avatar',
-      'groupIds',
-      'userId',
-      'appIds',
-      'permissions']
+
+  members = dict(DomainObject.members.items() + [
+      ('firstName', 'string'),
+      ('lastName', 'string'),
+      ('alias', 'string'),
+      ('avatar', 'url'),
+      ('groupIds', 'set'),
+      ('userId', 'id'),
+      ('appIds', 'set'),
+      ('permissions', 'permissions')])
 
   def __init__(self, **kargs):
     super(Identity, self).__init__(**kargs)
 
 class Track(DomainObject):
   """Data pipeline to connect one flow to another."""
-  members = DomainObject.members + [
-      'from',
-      'to',
-      'filterString',
-      'transformFunction',
-      'permissions']
+
+  members = dict(DomainObject.members.items() + [
+      ('from', 'path'),
+      ('to', 'path'),
+      ('filterString', 'string'),
+      ('transformFunction', 'transformFunction'),
+      ('permissions', 'permissions')])
 
   def __init__(self, **kargs):
     super(Track, self).__init__(**kargs)
 
 class User(DomainObject):
   """A system user and a container for identities."""
-  members = DomainObject.members + [
-      'email',
-      'password',
-      'permissions']
+
+  members = dict(DomainObject.members.items() + [
+      ('email', 'email'),
+      ('initialEmail', 'email'),
+      ('password', 'password'),
+      ('defaultIdentity', 'identity'),
+      ('identityIds', 'set'),
+      ('permissions', 'permissions')])
 
   def __init__(self, **kargs):
     super(User, self).__init__(**kargs)
 
+class DomainObjectIterator(object):
+  def __init__(self, objs=[], total=None):
+    self._total = total
+    self.objs = objs
+
+  def total(self):
+    if not self._total:
+      raise ValueError('Total size of set unknown. To obtain the size of the iterator invoke size().')
+
+    return self._total
+
+  def size(self):
+    return len(self.objs)
+
+  def __iter__(self):
+    for i in self.objs: yield i
+
 class DomainObjectFactory(object):
   """Factory class to instantiate domain objects based upon their string type-hints."""
+
+  TYPES = ['application', 'flow', 'comment', 'drop', 'enum', 'file', 'group', 'identity', 'track', 'user']
+
   @staticmethod
-  def get_instance(type_hint, **kargs):
+  def get_instance(type, **kargs):
     """Return an instance of a class by a given type-hint.
 
     Keyword arguments should be the key value mapping of 
@@ -874,67 +1329,263 @@ class DomainObjectFactory(object):
     >>> DomainObjectFactory().get_instance('user', email='alice@example.com')
 
     """
-    if type_hint == 'application':
+    if type == 'application':
       return Application(**kargs)
-    elif type_hint == 'bucket':
-      return Bucket(**kargs)
-    elif type_hint == 'comment':
+    elif type == 'flow':
+      return Flow(**kargs)
+    elif type == 'comment':
       return Comment(**kargs)
-    elif type_hint == 'drop':
+    elif type == 'drop':
       return Drop(**kargs)
-    elif type_hint == 'file':
+    elif type == 'file':
       return File(**kargs)
-    elif type_hint == 'group':
+    elif type == 'group':
       return Group(**kargs)
-    elif type_hint == 'identity':
+    elif type == 'identity':
       return Identity(**kargs)
-    elif type_hint == 'track':
+    elif type == 'track':
       return Track(**kargs)
-    elif type_hint == 'user':
+    elif type == 'user':
       return User(**kargs)
     else:
-      raise ValueError('Unknown type-hint \'%s\' supplied for instantiation' % type_hint)
+      raise ValueError('Unknown type \'%s\' supplied for instantiation' % type)
 
-if __name__ == '__main__':
-  KEY     = sys.argv[1]
-  SECRET  = sys.argv[2]
-  ACTOR   = '000000000000000000000001'
+class DomainObjectMemberFactory(object):
+  """Factory class to instantiate domain object members based upon their string type-hints."""
 
-  json_client = JsonRestClient(KEY, SECRET, ACTOR)
-  json_client.set_logger_file('client.out')
+  NATIVE_TYPES = [
+      'string',
+      'boolean',
+      'integer',
+      'float',
+      'list',
+      'set',
+      'map']
 
-  app_a = Application(
-      name='lion_king',
-      email='simba@priderock.org',
-      description='the lion king').save()
+  LABELLED_STRING_TYPES = [
+      'id',
+      'path',
+      'email',
+      'password',
+      'url',
+      'bytes']
 
-  app_b = Application(
-      name='hakuna_matata',
-      email='simba@priderock.org',
-      description='songs from the lion king').save()
+  LABELLED_INT_TYPES = [
+      'weight']
 
-  apps = Application.find(name='lion_king')
-  print app_a in apps
-  print app_b in apps
-  print '-'.join(['' for x in range(0, 20)])
+  LABELLED_LIST_TYPES = [
+      'constraints']
 
-  apps = Application.find(email='simba@priderock.org')
-  print app_a in apps
-  print app_b in apps
-  print '-'.join(['' for x in range(0, 20)])
+  LABELLED_DICT_TYPES = [
+      'permissions', 
+      'constraint',
+      'applicationTemplate',
+      'flowTemplate',
+      'trackTemplate',
+      'dropTemplate',
+      'transformFunction',
+      'flags',
+      'rating']
 
-  apps = Application.find(query='lion', limit=2)
-  print app_a in apps
-  print app_b in apps
-  print '-'.join(['' for x in range(0, 20)])
+  @staticmethod
+  def get_instance(type, value):
+    if type in DomainObjectMemberFactory.NATIVE_TYPES:
+      return {'type': type, 'value': value}
 
-  app_a.url = 'http://lionking.priderock.org'
-  app_a.save()
+    if type in DomainObjectMemberFactory.LABELLED_STRING_TYPES and isinstance(value, basestring):
+      return {'type': type, 'value': value}
 
-  apps = json_client.search(Application, Bucket, query='lion', limit=2)
+    if type in DomainObjectMemberFactory.LABELLED_INT_TYPES and isinstance(value, int):
+      return {'type': type, 'value': value}
 
-  for app in apps:
-    print app.get_members()
+    if type in DomainObjectMemberFactory.LABELLED_LIST_TYPES and isinstance(value, list):
+      return {'type': type, 'value': value}
 
-  app_a.delete()
-  app_b.delete()
+    if type in DomainObjectMemberFactory.LABELLED_LIST_TYPES and isinstance(value, dict):
+      return {'type': type, 'value': value.popitem()[1]}
+
+    if type in DomainObjectMemberFactory.LABELLED_DICT_TYPES and isinstance(value, dict):
+      return {'type': type, 'value': value}
+
+    if type == 'date' and (isinstance(value, basestring) or isinstance(value, int)):
+      return {'type': type, 'value': int(value)}
+
+    else:
+      raise NotImplementedError('Cannot create instance for type-value pair (%s, %s)' % (type, value))
+
+  @classmethod
+  def id(cls, value):
+    return cls.get_instance('id', value)
+
+  @classmethod
+  def path(cls, value):
+    return cls.get_instance('path', value)
+
+  @classmethod
+  def email(cls, value):
+    return cls.get_instance('email', value)
+
+  @classmethod
+  def url(cls, value):
+    return cls.get_instance('url', value)
+
+  @classmethod
+  def constraints(cls, *values):
+    return cls.get_instance('constraints', [cls.get_instance('constraint', i) for i in values])
+
+  @classmethod
+  def applicationTemplate(cls, flows, tracks):
+    return cls.get_instance('applicationTemplate', {
+      'flowTemplates': [cls.get_instance('flowTemplate', x) for x in flows],
+      'trackTemplates': [cls.get_instance('trackTemplate', x) for x in tracks]})
+
+class DomainFactory(DomainObjectMemberFactory):
+  """Used only to save typing during Domain Object construction."""
+
+  @classmethod
+  def application(**kargs):
+    return DomainObjectFactory.get_instance('application', **kargs)
+
+  @classmethod
+  def bucket(**kargs):
+    return DomainObjectFactory.get_instance('bucket', **kargs)
+
+  @classmethod
+  def comment(**kargs):
+    return DomainObjectFactory.get_instance('comment', **kargs)
+
+  @classmethod
+  def drop(**kargs):
+    return DomainObjectFactory.get_instance('drop', **kargs)
+
+  @classmethod
+  def enum(**kargs):
+    return DomainObjectFactory.get_instance('enum', **kargs)
+
+  @classmethod
+  def file(**kargs):
+    return DomainObjectFactory.get_instance('file', **kargs)
+
+  @classmethod
+  def group(**kargs):
+    return DomainObjectFactory.get_instance('group', **kargs)
+
+  @classmethod
+  def identity(**kargs):
+    return DomainObjectFactory.get_instance('identity', **kargs)
+
+  @classmethod
+  def track(**kargs):
+    return DomainObjectFactory.get_instance('track', **kargs)
+
+  @classmethod
+  def user(**kargs):
+    return DomainObjectFactory.get_instance('user', **kargs)
+
+try:
+  from twisted.internet import reactor
+  from twisted.names.srvconnect import SRVConnector
+  from twisted.words.protocols.jabber import client, jid, xmlstream
+
+  class XmppClient(object):
+    C2S_PORT = 5222
+
+    def __init__(self, jid_str, secret):
+      self.logger = logging.getLogger('flow.XmppClient')
+
+      self.jid = jid.JID(jid_str)
+      self.is_authenticated = False
+      self.is_connected = False
+
+      factory = client.XMPPClientFactory(self.jid, secret)
+
+      factory.addBootstrap(
+          xmlstream.STREAM_CONNECTED_EVENT,
+          self._on_connect)
+
+      factory.addBootstrap(
+          xmlstream.STREAM_END_EVENT,
+          self._on_disconnect)
+
+      factory.addBootstrap(
+          xmlstream.STREAM_AUTHD_EVENT,
+          self._on_authenticate)
+
+      factory.addBootstrap(
+          xmlstream.INIT_FAILED_EVENT,
+          self._on_err)
+
+      XmppClient.Connector(reactor, self.jid.host, factory).connect()
+
+    def set_logger_level(self, level):
+      self.logger.setLevel(level)
+
+    def set_logger_file(self, filename):
+      self.logger.addHandler(logging.FileHandler(filename))
+
+    def start(self):
+      reactor.run()
+
+    def incoming_packet_callback(self, buf):
+      pass
+
+    def outgoing_packet_callback(self, buf):
+      pass
+
+    def connect_callback(self):
+      pass
+
+    def authenticate_callback(self):
+      pass
+
+    def disconnect_callback(self):
+      pass
+
+    def _on_data_in(self, buffer):
+      self.logger.debug('<< %s' % unicode(buffer, 'utf-8').encode('ascii', 'replace'))
+      if self.is_authenticated: self.incoming_packet_callback(buffer)
+
+    def _on_data_out(self, buffer):
+      self.logger.debug('>> %s' % unicode(buffer, 'utf-8').encode('ascii', 'replace'))
+      if self.is_authenticated: self.outgoing_packet_callback(buffer)
+
+    def _on_connect(self, stream):
+      self.logger.info('%s connected' % self)
+      self.is_connected = True
+      self.stream = stream
+      stream.rawDataInFn = self._on_data_in
+      stream.rawDataOutFn = self._on_data_out
+      self.connect_callback()
+
+    def _on_disconnect(self, stream):
+      self.logger.info('%s disconnected' % self)
+      self.is_connected = False
+      self.is_authenticated = False
+      reactor.callLater(0.5, reactor.stop)
+      self.disconnect_callback()
+
+    def _on_authenticate(self, stream):
+      self.logger.info('%s authenticated' % self)
+      self.is_authenticated = True
+      self.authenticate_callback()
+
+    def _on_err(self, stream):
+      self.logger.info('%s failed initialization' % self)
+      self.stream.sendFooter()
+
+    class Connector(SRVConnector):
+      def __init__(self, reactor, domain, factory):
+        SRVConnector.__init__(self, reactor, 'flow.XmppClient', domain, factory)
+
+      def pickServer(self):
+        host, port = SRVConnector.pickServer(self)
+
+        if not self.servers and not self.orderedServers:
+          port = XmppClient.C2S_PORT
+
+        return host, port
+
+except ImportError:
+  class XmppClient(object):
+    def __init__(self, jid_str, secret):
+      raise Exception('python module `twisted` required')
