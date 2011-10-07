@@ -15,11 +15,11 @@ Flow Platform.
 Installation
 ============
 
-From the top-level directory, issue:::
+From the top-level directory, issue: ::
 
   $ python setup.py install
 
-To run the unit-tests, issue:::
+To run the unit-tests, issue: ::
 
   $ python setup.py test
 
@@ -30,13 +30,13 @@ Documentation
 The Flow Platform: Python Client Library uses Sphinx to generate its API documentation.
 
 To build local HTML documentation issue the following command from
-the library's top-level directory:::
+the library's top-level directory: ::
 
   $ make html
 
 The generated files will be placed in ``build/html``.
 
-For more information on available options, issue:::
+For more information on available options, issue: ::
 
   $ make help
 
@@ -55,7 +55,7 @@ to ``flow.RestClient``'s ``set_actor`` method.
 All requests and responses can be logged to a file you specify. Provide the filename when invoking
 ``flow.RestClient.set_logger_file``.
 
-To execute requests against the Flow API, invoke the client's ``http_*`` methods.::
+To execute requests against the Flow API, invoke the client's ``http_*`` methods. ::
 
   import flow
 
