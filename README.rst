@@ -27,10 +27,9 @@ To run the unit-tests, issue: ::
 Documentation
 =============
 
-The Flow Platform: Python Client Library uses Sphinx to generate its API documentation.
+**The Flow Platform: Python Client Library** uses Sphinx to generate its API documentation.
 
-To build local HTML documentation issue the following command from
-the library's top-level directory: ::
+To build local HTML documentation, issue the following command from the library's top-level directory: ::
 
   $ make html
 
@@ -48,9 +47,11 @@ Usage
 The ``flow.RestClient`` uses native python strings as its data interchange format.
 
 All platform authentication is handled by the internals of the client.
-Simply supply your application key and secret to the ``flow.RestClient`` constructor.
+
+Simply supply your application key and application secret to the ``flow.RestClient`` constructor.
+
 In order to make API calls on behalf of an identity or application, provide the ID of the said resource
-to ``flow.RestClient``'s ``set_actor`` method.
+to the client's ``set_actor`` method.
 
 All requests and responses can be logged to a file you specify. Provide the filename when invoking
 ``flow.RestClient.set_logger_file``.
@@ -66,6 +67,41 @@ To execute requests against the Flow API, invoke the client's ``http_*`` methods
 
   response = client.http_get('/flow', qs={'limit': 10})
 
+To take advantage of the library's domain model, use ``flow.JsonRestClient`` or ``flow.XmlRestClient``
+as your transport mechanism.
+
+These marshaling REST clients convert the raw response strings received from the Flow API into python-friendly
+JSON or XML data (using the ``json`` and ``xml.dom`` modules, respectively). 
+
+When using the CRUD methods on these clients, instances of the library's domain objects will be returned.
+
+**Using the Flow Domain Model**
+
+Each model present in the Flow Platform is represented by a class in the python client library.
+
+Instances of these domain model classes follow an Active Record pattern.
+
+  * Creation and Modification ::
+    
+    my_coupons = flow.Flow(path = '/identity/jeffo/coupons', name = 'My Coupons').save()
+
+    print my_coupons.id
+
+    my_coupons.description = 'A coupon flow that tracks the SmartSource RSS feed'
+
+    my_coupons.save()
+
+  * Retrieval ::
+
+    one_flow = flow.Flow.find(id = my_coupons.id) 
+
+    many_flows = flow.Flow.find(name = 'My Coupons')
+
+  * Deletion ::
+
+    my_coupons.delete()
+
+.. _ActiveRecord: http://martinfowler.com/eaaCatalog/activeRecord.html
 
 Author / Maintainer
 ===================
