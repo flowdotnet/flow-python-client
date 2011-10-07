@@ -83,23 +83,23 @@ Instances of these domain model classes follow an Active Record pattern.
 
   * Creation and Modification ::
     
-    my_coupons = flow.Flow(path = '/identity/jeffo/coupons', name = 'My Coupons').save()
+      my_coupons = flow.Flow(path = '/identity/jeffo/coupons', name = 'My Coupons').save()
 
-    print my_coupons.id
+      print my_coupons.id
 
-    my_coupons.description = 'A coupon flow that tracks the SmartSource RSS feed'
+      my_coupons.description = 'A coupon flow that tracks the SmartSource RSS feed'
 
-    my_coupons.save()
+      my_coupons.save()
 
   * Retrieval ::
 
-    one_flow = flow.Flow.find(id = my_coupons.id) 
+      one_flow = flow.Flow.find(id = my_coupons.id) 
 
-    many_flows = flow.Flow.find(name = 'My Coupons')
+      many_flows = flow.Flow.find(name = 'My Coupons')
 
   * Deletion ::
 
-    my_coupons.delete()
+      my_coupons.delete()
 
 .. _ActiveRecord: http://martinfowler.com/eaaCatalog/activeRecord.html
 
