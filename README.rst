@@ -44,7 +44,7 @@ For more information on available options, issue: ::
 Usage
 =====
 
-**Instantiating a HTTP Client**
+**Using the HTTP Client**
 
 The ``flow.RestClient`` uses native python strings as its data interchange format.
 
@@ -69,7 +69,7 @@ To execute requests against the Flow API, invoke the client's ``http_*`` methods
 
   response = client.http_get('/flow', qs={'limit': 10})
 
-To take advantage of the library's domain model, use ``flow.JsonRestClient`` or ``flow.XmlRestClient``
+To take advantage of the library's features and its full domain model, use ``flow.JsonRestClient`` or ``flow.XmlRestClient``
 as your transport mechanism.
 
 These marshaling REST clients convert the raw response strings received from the Flow API into python-friendly
@@ -77,39 +77,67 @@ JSON or XML data (using the ``json`` and ``xml.dom`` modules, respectively).
 
 When using the CRUD methods on these clients, instances of the library's domain objects will be returned.
 
+If at any point a HTTP request is unsuccessful, an exception will be raised. 
+
 **Using the Flow Domain Model**
 
 Each model present in the Flow Platform is represented by a class in the python client library.
 
 Instances of these domain model classes follow an Active Record pattern.
 
-  * Creation and Modification :: code-block python
+  * Creation and Modification :: 
     
-      # the `save` method invokes a call to the platform 
-      # which will remotely persist the object
+      #
+      # the `save` method invokes a call to the platform which will remotely persist the object
+      #
+
       my_coupons = flow.Flow(path = '/identity/jeffo/coupons', name = 'My Coupons').save()
 
+      #
       # post-save, an id is assigned
-      print my_coupons.id
+      #
+
+      assert(my_coupons.id is not None)
 
       my_coupons.description = 'A coupon flow that tracks the SmartSource RSS feed'
 
-      # an object that already has a Flow identifier
-      # will be updated when `save` is again invoked
+      #
+      # an object that already has a Flow identifier will be updated when `save` is again invoked
+      #
+
       my_coupons.save()
 
   * Retrieval ::
 
-      # specifiying an identifier will return the requested resource if it exists
+      #
+      # specifiying an identifier will return the requested resource, if it exists
+      #
+
       one_flow = flow.Flow.find(id = my_coupons.id) 
 
       assert(one_flow.id == my_coupons.id)
 
-      # specifiying non-identifiers will return all matching resources
-      # as a `flow.DomainObjectIterator`
-      many_flows = flow.Flow.find(name = 'My Coupons')
+      #
+      # specifiying non-identifiers will return all matching resources as a `flow.DomainObjectIterator`
+      #
+
+      many_flows = flow.Flow.find(name = 'My Coupons') # can specify one or many data members
 
       assert(many_flows.size() > 0)
+
+      many_flows.size() # 1
+
+      #
+      # full-text search is also available via the find method, when using the `query` keyword argument
+      #
+
+      results = flow.Flow.find(query = 'coupon*')
+      
+      #
+      # add `offset`, `limit`, `sort` and `order` modifiers to any `find` invokation
+      #
+      
+      results = flow.Find.find(name = 'My Coupons', local = False, offset = 10, limit = 10)
 
   * Deletion ::
 
