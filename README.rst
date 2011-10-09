@@ -39,6 +39,8 @@ For more information on available options, issue: ::
 
   $ make help
 
+.. _Sphinx: http://http://sphinx.pocoo.org/
+
 Usage
 =====
 
@@ -81,7 +83,7 @@ Each model present in the Flow Platform is represented by a class in the python 
 
 Instances of these domain model classes follow an Active Record pattern.
 
-  * Creation and Modification ::
+  * Creation and Modification :: code-block python
     
       # the `save` method invokes a call to the platform 
       # which will remotely persist the object
@@ -92,7 +94,7 @@ Instances of these domain model classes follow an Active Record pattern.
 
       my_coupons.description = 'A coupon flow that tracks the SmartSource RSS feed'
 
-      # an object that already has a Flow identitifer
+      # an object that already has a Flow identifier
       # will be updated when `save` is again invoked
       my_coupons.save()
 
