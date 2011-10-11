@@ -41,9 +41,14 @@ example_drop = flow.Drop(
 
 example_file = flow.File()
 
-example_group = flow.Group()
+example_group = flow.Group(
+    name = 'wowzers',
+    displayName = 'WOWzer Unoffical Group')
 
-example_identity = flow.Identity()
+example_identity = flow.Identity(
+    firstName = 'mark',
+    lastName = 'zuckerface',
+    alias = 'fuckface')
 
 example_track = flow.Track(**{
   'from': example_bucket_4.path,
@@ -77,7 +82,7 @@ class MarshalerTestCase(unittest.TestCase):
   def test_dumps(self):
     if self.marshaler:
       for i in self.__class__.DUMPABLE:
-        print self.marshaler.dumps(i)
+        self.marshaler.dumps(i)
 
   def test_loads(self):
     if self.marshaler:

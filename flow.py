@@ -447,7 +447,6 @@ class XmlRestClient(MarshalingRestClient):
     try:
       return self.marshaler.loads(raw_response, 'map')
     except Exception as e:
-      #print e
       raise UnparsableResponseError(raw_response, 'XML response data could not be parsed')
 
   def response_ok(self, response):
@@ -609,6 +608,12 @@ class JsonMarshaler(Marshaler):
     return self.load(json.loads(data), type)
 
 class XmlMarshaler(Marshaler):
+  def _flatten(self, node):
+    node.normalize()
+    children = [child.nodeValue for child in node.childNodes if isinstance(child, xml.dom.minidom.Text)]
+
+    return ''.join(children)
+
   def dump(self, obj, document=None):
     is_primitive = lambda x: True in [isinstance(x, type) for type in [basestring, int, float]]
     is_labelled = lambda x: isinstance(x, tuple) and isinstance(x[0], basestring)
@@ -766,32 +771,16 @@ class XmlMarshaler(Marshaler):
           return {'type': type, 'value': []}
 
       elif type == 'float' and data.hasChildNodes():
-        data.normalize()
-        children = [child.nodeValue for child in data.childNodes if isinstance(child, xml.dom.minidom.Text)]
-        value = ''.join(children)
-
-        return float(value)
+        return float(self._flatten(value))
 
       elif type == 'integer' and data.hasChildNodes():
-        data.normalize()
-        children = [child.nodeValue for child in data.childNodes if isinstance(child, xml.dom.minidom.Text)]
-        value = ''.join(children)
-
-        return int(value)
+        return int(self._flatten(value))
 
       elif type == 'boolean' and data.hasChildNodes():
-        data.normalize()
-        children = [child.nodeValue for child in data.childNodes if isinstance(child, xml.dom.minidom.Text)]
-        value = ''.join(children)
-
-        return bool(value)
+        return bool(self._flatten(value))
 
       elif type == 'string' and data.hasChildNodes():
-        data.normalize()
-        children = [child.nodeValue for child in data.childNodes if isinstance(child, xml.dom.minidom.Text)]
-        value = ''.join(children)
-
-        return value
+        return self._flatten(value)
 
       elif type == 'permissions' and data.hasChildNodes():
         data.normalize()
@@ -816,7 +805,6 @@ class XmlMarshaler(Marshaler):
           return DomainObjectMemberFactory.get_instance(type, value)
 
         except Exception as e:
-          #print e
           raise Exception('Cannot load object of type %s with value %s' % (type, data))
 
     elif isinstance(data, xml.dom.minidom.Element) and data.hasChildNodes():
