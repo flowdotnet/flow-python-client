@@ -771,16 +771,16 @@ class XmlMarshaler(Marshaler):
           return {'type': type, 'value': []}
 
       elif type == 'float' and data.hasChildNodes():
-        return float(self._flatten(value))
+        return float(self._flatten(data))
 
       elif type == 'integer' and data.hasChildNodes():
-        return int(self._flatten(value))
+        return int(self._flatten(data))
 
       elif type == 'boolean' and data.hasChildNodes():
-        return bool(self._flatten(value))
+        return bool(self._flatten(data))
 
       elif type == 'string' and data.hasChildNodes():
-        return self._flatten(value)
+        return self._flatten(data)
 
       elif type == 'permissions' and data.hasChildNodes():
         data.normalize()
@@ -1476,6 +1476,10 @@ try:
   from twisted.words.protocols.jabber import client, jid, xmlstream
 
   class XmppClient(object):
+    """A base class for communication with the Flow Platform's
+    publish-subscribe model over the XMPP protocol.
+    """
+
     C2S_PORT = 5222
 
     def __init__(self, jid_str, secret):
@@ -1530,14 +1534,17 @@ try:
       pass
 
     def _on_data_in(self, buffer):
+      """Log incoming data and trigger incoming callback if authenticated"""
       self.logger.debug('<< %s' % unicode(buffer, 'utf-8').encode('ascii', 'replace'))
       if self.is_authenticated: self.incoming_packet_callback(buffer)
 
     def _on_data_out(self, buffer):
+      """Log outgoing data and trigger outgoing callback if authenticated"""
       self.logger.debug('>> %s' % unicode(buffer, 'utf-8').encode('ascii', 'replace'))
       if self.is_authenticated: self.outgoing_packet_callback(buffer)
 
     def _on_connect(self, stream):
+      """Bind data processing routines and trigger connect callback"""
       self.logger.info('%s connected' % self)
       self.is_connected = True
       self.stream = stream
@@ -1546,6 +1553,7 @@ try:
       self.connect_callback()
 
     def _on_disconnect(self, stream):
+      """Stop event-loop and trigger disconnect callback"""
       self.logger.info('%s disconnected' % self)
       self.is_connected = False
       self.is_authenticated = False
@@ -1553,11 +1561,13 @@ try:
       self.disconnect_callback()
 
     def _on_authenticate(self, stream):
+      """Trigger authentication callback"""
       self.logger.info('%s authenticated' % self)
       self.is_authenticated = True
       self.authenticate_callback()
 
     def _on_err(self, stream):
+      """Close connection during initialization failure"""
       self.logger.info('%s failed initialization' % self)
       self.stream.sendFooter()
 
