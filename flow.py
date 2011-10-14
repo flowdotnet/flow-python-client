@@ -391,7 +391,9 @@ class JsonRestClient(MarshalingRestClient):
   def __init__(self, key, secret, actor=None):
     super(JsonRestClient, self).__init__(JsonMarshaler(), key, secret, actor)
     self.logger = logging.getLogger('flow.JsonRestClient')
-    self.set_opts({'qs': {'hints': 1}})
+    self.set_opts({
+        'qs': {'hints': 1},
+        'headers': {'Accept': RestClient.MIME_JSON}})
 
   def _parse_response(self, raw_response):
     try:
@@ -489,12 +491,12 @@ class XmlRestClient(MarshalingRestClient):
     if data: headers['Content-type'] = RestClient.MIME_XML
     return super(XmlRestClient, self).http_delete(uri, data, qs, headers) 
 
-class UnparsableResponseError(Exception):
+class UnparsableResponseError(RuntimeError):
   def __init__(self, raw_response, value=None):
     self.response = raw_response
     self.value = value if value else ''
 
-class ParsableResponseError(Exception):
+class ParsableResponseError(RuntimeError):
   def __init__(self, response, description=None):
     self.response = response
     self.description = description if description else 'No description available'
@@ -506,27 +508,21 @@ class ParsableResponseError(Exception):
     raise NotImplemented('Implementation of this method required.')
 
   def status(self):
-    raise NotImplemented('Implementation of this method required.')
+    return int(self.response['head']['status'])
 
 class JsonResponseError(ParsableResponseError):
   def messages(self):
-    pass
+    return [message[1] for message in self.response['head']['messages']]
 
   def errors(self):
-    pass
-
-  def status(self):
-    pass
+    return [error[1] for error in self.response['head']['errors']]
 
 class XmlResponseError(ParsableResponseError):
   def messages(self):
-    pass
+    return self.response['head']['messages']['message'] 
 
   def errors(self):
-    pass
-
-  def status(self):
-    pass
+    return self.response['head']['errors']['error']
 
 class Marshaler(object):
   @staticmethod
