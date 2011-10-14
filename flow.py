@@ -44,8 +44,9 @@ import os, sys
 import logging
 import httplib, urllib
 import hashlib
-import time
+import datetime, time
 import json, xml.dom.minidom
+import re
 
 API_HOST = 'localhost'
 API_PORT = 8080
@@ -882,6 +883,14 @@ class DomainObject(object):
   def set_member(self, name, value):
     self.__setattr__(name, value)
 
+  def get_member_type(self, name):
+    member = self.__getattr__(name)
+    return member['type'] if member else self.__class__.members['name']
+
+  def get_member_value(self, name):
+    member = self.__getattr__(name)
+    return member['value'] if member else None
+
   def get_members(self):
     """Return a key-value map of the domain object's data members."""
     return dict(filter(
@@ -1302,6 +1311,9 @@ class DomainObjectIterator(object):
   def __iter__(self):
     for i in self.objs: yield i
 
+  def __getitem__(self, i):
+    return self.objs[i]
+
 class DomainObjectFactory(object):
   """Factory class to instantiate domain objects based upon their string type-hints."""
 
@@ -1377,6 +1389,11 @@ class DomainObjectMemberFactory(object):
 
   @staticmethod
   def get_instance(type, value):
+    # regular expression patterns can be used in place of strings, or any string-like type
+    if (type == 'string' or type in DomainObjectMemberFactory.LABELLED_STRING_TYPES) \
+      and isinstance(value, re._pattern_type):
+      return {'type': 'expression', 'value': {'operator': '$regex', 'operand': value.pattern}}
+
     if type in DomainObjectMemberFactory.NATIVE_TYPES:
       return {'type': type, 'value': value}
 
@@ -1395,7 +1412,18 @@ class DomainObjectMemberFactory(object):
     if type in DomainObjectMemberFactory.LABELLED_DICT_TYPES and isinstance(value, dict):
       return {'type': type, 'value': value}
 
+    # build date from an integer value or string that represents milliseconds since epoch
     if type == 'date' and (isinstance(value, basestring) or isinstance(value, int)):
+      return {'type': type, 'value': int(value)}
+
+    # build date from native datetime object
+    if type == 'date' and isinstance(value, datetime.datetime):
+      value = (time.mktime(value.timetuple()) + (value.microsecond / 1000000)) * 1000
+      return {'type': type, 'value': int(value)}
+
+    # build date from native date object
+    if type == 'date' and isinstance(value, datetime.date):
+      value = time.mktime(value.timetuple()) * 1000
       return {'type': type, 'value': int(value)}
 
     else:
