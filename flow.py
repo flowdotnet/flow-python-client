@@ -51,9 +51,6 @@ import re
 API_HOST = 'localhost'
 API_PORT = 8080
 
-FILE_SERVER_HOST = 'file.flow.net'
-FILE_SERVER_PORT = 80
-
 class RestClient(object):
   """A handle to the Flow Platform's RESTful API."""
 
@@ -913,9 +910,6 @@ class DomainObject(object):
   def save(self, client=None):
     """Persist an object in the Flow Platform.
 
-    .. note::
-      ''
-
     **Keyword args:**
       client (MarshalingClient): A marshaling REST client -- defaults to the current active client
 
@@ -1057,6 +1051,11 @@ class DomainObject(object):
 
       opts = dict([(opt, kargs.pop(opt)) for opt in \
           filter(lambda x: x in kargs, ['query', 'filter', 'offset', 'limit', 'sort', 'order'])])
+
+      new = cls(**kargs)
+      typed_kargs = new.get_members()
+      kargs.update(typed_kargs)
+      del new
 
       return active_client.find_many(cls, uri, kargs, **opts)
 
@@ -1388,10 +1387,22 @@ class DomainObjectMemberFactory(object):
     # regular expression patterns can be used in place of strings, or any string-like type
     if (type == 'string' or type in DomainObjectMemberFactory.LABELLED_STRING_TYPES) \
       and isinstance(value, re._pattern_type):
-      return {'type': 'expression', 'value': {'operator': '$regex', 'operand': value.pattern}}
+      return {'type': 'expression', 'value': {'operator': 'regex', 'operand': value.pattern}}
 
     if type in DomainObjectMemberFactory.NATIVE_TYPES:
-      return {'type': type, 'value': value}
+      if (type == 'string' and isinstance(value, basestring)) \
+        or (type == 'boolean' and isinstance(value, bool)) \
+        or (type == 'integer' and isinstance(value, int)) \
+        or (type == 'float' and (isinstance(value, float) or isinstance(value, int))) \
+        or (type == 'list' and isinstance(value, list)) \
+        or (type == 'map' and isinstance(value, dict)):
+        return {'type': type, 'value': value}
+
+      elif (type == 'set' and (isinstance(value, set) or isinstance(value, list))) :
+        return {'type': type, 'value': list(value)}
+
+      else:
+        raise NotImplementedError('Cannot create instance for type-value pair (%s, %s)' % (type, value))
 
     if type in DomainObjectMemberFactory.LABELLED_STRING_TYPES and isinstance(value, basestring):
       return {'type': type, 'value': value}

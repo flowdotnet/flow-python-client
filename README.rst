@@ -61,6 +61,7 @@ All requests and responses can be logged to a file you specify. Provide the file
 To execute requests against the Flow API, invoke the client's ``http_*`` methods. ::
 
   import flow
+  import logging
 
   client = flow.RestClient(APPLICATION_KEY, APPLICATION_SECRET)
   client.set_actor(MY_IDENTITY_ID)
