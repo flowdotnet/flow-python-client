@@ -48,8 +48,8 @@ import datetime, time
 import json, xml.dom.minidom
 import re
 
-API_HOST = 'localhost'
-API_PORT = 8080
+API_HOST = 'api.flow.net'
+API_PORT = 80
 
 class RestClient(object):
   """A handle to the Flow Platform's RESTful API."""
@@ -102,8 +102,11 @@ class RestClient(object):
       void
 
     """
-    if 'headers' not in opts: opts['headers'] = {}
-    if 'qs' not in opts: opts['qs'] = {}
+    if 'headers' not in opts:
+      opts['headers'] = {}
+
+    if 'qs' not in opts:
+      opts['qs'] = {}
 
     self.opts = opts
 
@@ -156,8 +159,11 @@ class RestClient(object):
       dict
 
     """
-    if 'headers' not in opts: opts['headers'] = {}
-    if 'qs' not in opts: opts['qs'] = {}
+    if 'headers' not in opts:
+      opts['headers'] = {}
+
+    if 'qs' not in opts:
+      opts['qs'] = {}
 
     opts['headers'].update(self.opts['headers'])
     opts['qs'].update(self.opts['qs'])
@@ -212,7 +218,7 @@ class RestClient(object):
     else:
       return uri
 
-  def _mk_request(self, uri, method, data=None, opts={}):
+  def _mk_request(self, uri, method, data=None, opts=None):
     """Build a request's opts, uri, and headers, and then execute it.
     
     **Args:**
@@ -225,13 +231,13 @@ class RestClient(object):
       str
 
     """
-    opts = self._mk_opts(opts)
+    opts = self._mk_opts(opts if opts else {})
     uri = self._mk_uri(uri, opts['qs'])
     headers = self._mk_headers(RestClient.DEFAULT_HEADERS[method], opts['headers'])
 
     return self.request(uri, method, data, headers)
 
-  def request(self, uri, method, data=None, headers={}):
+  def request(self, uri, method, data=None, headers=None):
     """Execute HTTP request against the Flow Platform API.
 
     .. note::
@@ -247,6 +253,7 @@ class RestClient(object):
 
     """
     data = data.encode('utf-8') if data else None
+    headers = headers if headers else {}
     conn = httplib.HTTPConnection(API_HOST + ':' + str(API_PORT))
     conn.request(method, uri, data, headers)
     response = conn.getresponse()
@@ -262,7 +269,7 @@ class RestClient(object):
 
     return response_str
 
-  def http_get(self, uri, qs={}, headers={}):
+  def http_get(self, uri, qs=None, headers=None):
     """Execute an HTTP GET request.
 
     **Args:**
@@ -272,9 +279,9 @@ class RestClient(object):
       opts (dict): Key-value pairs of HTTP headers and query parameters
 
     """
-    return self._mk_request(uri, 'GET', None, {'qs': qs, 'headers': headers})
+    return self._mk_request(uri, 'GET', None, {'qs': qs if qs else {}, 'headers': headers if headers else {}})
 
-  def http_post(self, uri, data, qs={}, headers={}):
+  def http_post(self, uri, data, qs=None, headers=None):
     """Execute an HTTP POST request.
 
     **Args:**
@@ -285,9 +292,9 @@ class RestClient(object):
       opts (dict): Key-value pairs of HTTP headers and query parameters
 
     """
-    return self._mk_request(uri, 'POST', data, {'qs': qs, 'headers': headers})
+    return self._mk_request(uri, 'POST', data, {'qs': qs if qs else {}, 'headers': headers if headers else {}})
 
-  def http_put(self, uri, data, qs={}, headers={}):
+  def http_put(self, uri, data, qs=None, headers=None):
     """Execute an HTTP PUT request.
 
     **Args:**
@@ -298,9 +305,9 @@ class RestClient(object):
       opts (dict): Key-value pairs of HTTP headers and query parameters
 
     """
-    return self._mk_request(uri, 'PUT', data, {'qs': qs, 'headers': headers})
+    return self._mk_request(uri, 'PUT', data, {'qs': qs if qs else {}, 'headers': headers if headers else {}})
 
-  def http_delete(self, uri, data=None, qs={}, headers={}):
+  def http_delete(self, uri, data=None, qs=None, headers=None):
     """Execute an HTTP DELETE request.
 
     **Args:**
@@ -311,7 +318,7 @@ class RestClient(object):
       opts (dict): Key-value pairs of HTTP headers and query parameters
 
     """
-    return self._mk_request(uri, 'DELETE', data, {'qs': qs, 'headers': headers})
+    return self._mk_request(uri, 'DELETE', data, {'qs': qs if qs else {}, 'headers': headers if headers else {}})
 
 class MarshalingRestClient(RestClient):
   """A handle to the Flow Platform RESTful API that can serialize
@@ -421,15 +428,18 @@ class JsonRestClient(MarshalingRestClient):
     results = super(JsonRestClient, self).find_many(cls, uri, data, **kargs)
     return DomainObjectIterator([cls(**Marshaler.kargify(result)) for result in results])
 
-  def http_post(self, uri, data, qs={}, headers={}):
+  def http_post(self, uri, data, qs=None, headers=None):
+    headers = headers if headers else {}
     headers['Content-type'] = RestClient.MIME_JSON
-    return super(JsonRestClient, self).http_post(uri, data, qs, headers) 
+    return super(JsonRestClient, self).http_post(uri, data, qs, headers)
 
-  def http_put(self, uri, data, qs={}, headers={}):
+  def http_put(self, uri, data, qs=None, headers=None):
+    headers = headers if headers else {}
     headers['Content-type'] = RestClient.MIME_JSON
-    return super(JsonRestClient, self).http_put(uri, data, qs, headers) 
+    return super(JsonRestClient, self).http_put(uri, data, qs, headers)
 
-  def http_delete(self, uri, data=None, qs={}, headers={}):
+  def http_delete(self, uri, data=None, qs=None, headers=None):
+    if not headers: headers = {}
     if data: headers['Content-type'] = RestClient.MIME_JSON
     return super(JsonRestClient, self).http_delete(uri, data, qs, headers) 
 
@@ -476,15 +486,18 @@ class XmlRestClient(MarshalingRestClient):
     else:
       return DomainObjectIterator([result])
 
-  def http_post(self, uri, data, qs={}, headers={}):
+  def http_post(self, uri, data, qs=None, headers=None):
+    headers = headers if headers else {}
     headers['Content-type'] = RestClient.MIME_XML
     return super(XmlRestClient, self).http_post(uri, data, qs, headers) 
 
-  def http_put(self, uri, data, qs={}, headers={}):
+  def http_put(self, uri, data, qs=None, headers=None):
+    headers = headers if headers else {}
     headers['Content-type'] = RestClient.MIME_XML
     return super(XmlRestClient, self).http_put(uri, data, qs, headers) 
 
-  def http_delete(self, uri, data=None, qs={}, headers={}):
+  def http_delete(self, uri, data=None, qs=None, headers=None):
+    if not headers: headers = {}
     if data: headers['Content-type'] = RestClient.MIME_XML
     return super(XmlRestClient, self).http_delete(uri, data, qs, headers) 
 
@@ -540,10 +553,10 @@ class Marshaler(object):
 
 class JsonMarshaler(Marshaler):
   def dump(self, obj):
-    is_labelled = lambda x: isinstance(x, tuple) and isinstance(x[0], basestring)
+    is_labeled = lambda x: isinstance(x, tuple) and isinstance(x[0], basestring)
     is_typed = lambda x: isinstance(x, dict) and 'type' in x and 'value' in x
 
-    if is_labelled(obj) and is_typed(obj[1]):
+    if is_labeled(obj) and is_typed(obj[1]):
       return dict([(obj[0], obj[1])])
     elif is_typed(obj):
       return obj
@@ -602,108 +615,137 @@ class JsonMarshaler(Marshaler):
     return self.load(json.loads(data), type)
 
 class XmlMarshaler(Marshaler):
-  def _flatten(self, node):
+  def _is_element(self, node):
+    return isinstance(node, xml.dom.minidom.Element)
+
+  def _has_elements(self, node):
+    for e in node.childNodes:
+      if(self._is_element(e)):
+        return True
+    
+    return False
+
+  def _get_elements(self, node):
+    return filter(self._is_element, node.childNodes)
+
+  def _concat_text_nodes(self, node):
     node.normalize()
     children = [child.nodeValue for child in node.childNodes if isinstance(child, xml.dom.minidom.Text)]
 
     return ''.join(children)
 
-  def dump(self, obj, document=None):
-    is_primitive = lambda x: True in [isinstance(x, type) for type in [basestring, int, float]]
-    is_labelled = lambda x: isinstance(x, tuple) and isinstance(x[0], basestring)
-    is_typed = lambda x: isinstance(x, dict) and 'type' in x and 'value' in x
+  def dump(self, obj, doc=None):
+    is_primitive  = lambda x: True in [isinstance(x, type) for type in [basestring, int, float]]
+    is_labeled    = lambda x: isinstance(x, tuple) and isinstance(x[0], basestring)
+    is_typed      = lambda x: isinstance(x, dict) and 'type' in x and 'value' in x
 
-    if not document:
+    if not doc:
       dom = xml.dom.minidom.getDOMImplementation()
-      document = dom.createDocument(None, 'root', None)
+      doc = dom.createDocument(None, 'root', None)
 
     if isinstance(obj, DomainObject):
-      return self.dump((obj.type_hint(), {'type': obj.type_hint(), 'value': obj.get_members()}), document)
+      return self.dump((obj.type_hint(), {'type': obj.type_hint(), 'value': obj.get_members()}), doc)
 
-    elif is_labelled(obj) and is_typed(obj[1]):
-      e = self.dump(obj[1]['value'], document)
-      e.tagName = obj[0]
-      e.setAttribute('type', obj[1]['type'])
+    elif is_labeled(obj) and is_typed(obj[1]):
+      return self.dump_typed_tuple(obj, doc)
 
-      if obj[1]['type'] == 'permissions':
-        for child in e.childNodes:
-          if isinstance(child, xml.dom.minidom.Element) and child.tagName in obj[1]['value']:
-            child.setAttribute('access', obj[1]['value'][child.tagName]['access'])
+    elif is_labeled(obj):
+      label, value = obj
 
-      return e
+      if isinstance(value, DomainObject):
+        return self.dump((label, {'type': value.type_hint(), 'value': value.get_members()}), doc)
 
-    elif is_labelled(obj):
-      if isinstance(obj[1], DomainObject):
-        return self.dump((obj[0], {'type': obj[1].type_hint(), 'value': obj[1].get_members()}), document)
-      if isinstance(obj[1], dict):
-        return self.dump((obj[0], {'type': 'map', 'value': obj[1]}), document)
-      elif isinstance(obj[1], set):
-        return self.dump((obj[0], {'type': 'set', 'value': obj[1]}), document)
-      elif isinstance(obj[1], list):
-        return self.dump((obj[0], {'type': 'list', 'value': obj[1]}), document)
-      elif isinstance(obj[1], bool):
-        return self.dump((obj[0], {'type': 'boolean', 'value': obj[1]}), document)
-      elif isinstance(obj[1], int):
-        return self.dump((obj[0], {'type': 'integer', 'value': obj[1]}), document)
-      elif isinstance(obj[1], float):
-        return self.dump((obj[0], {'type': 'float', 'value': obj[1]}), document)
-      elif(isinstance(obj[1], basestring)):
-        return self.dump((obj[0], {'type': 'string', 'value': obj[1]}), document)
+      if isinstance(value, dict):
+        return self.dump((label, {'type': 'map', 'value': value}), doc)
+
+      elif isinstance(value, set):
+        return self.dump((label, {'type': 'set', 'value': value}), doc)
+
+      elif isinstance(value, list):
+        return self.dump((label, {'type': 'list', 'value': value}), doc)
+
+      elif isinstance(value, bool):
+        return self.dump((label, {'type': 'boolean', 'value': value}), doc)
+
+      elif isinstance(value, int):
+        return self.dump((label, {'type': 'integer', 'value': value}), doc)
+
+      elif isinstance(value, float):
+        return self.dump((label, {'type': 'float', 'value': value}), doc)
+
+      elif(isinstance(value, basestring)):
+        return self.dump((label, {'type': 'string', 'value': value}), doc)
+
       else:
-        raise TypeError('Cannot dump value of unknown type %s' % obj[1])
+        raise TypeError('Cannot dump value of unknown type %s' % value)
 
     elif isinstance(obj, dict):
-      e = document.createElement('items')
-
-      for i, j in obj.iteritems():
-        child = self.dump((i, j), document)
-        e.appendChild(child)
-        e.setAttribute('type', 'map')
-
-      return e
+      return self.dump_dict(obj, doc)
 
     elif isinstance(obj, set):
-      e = document.createElement('items')
-
-      for i in obj:
-        child = self.dump(('item', i), document)
-        e.appendChild(child)
-        e.setAttribute('type', 'set')
-
+      e = self.dump_list(obj, doc)
+      e.setAttribute('type', 'set')
       return e
 
     elif isinstance(obj, list):
-      e = document.createElement('items')
-
-      for i in obj:
-        child = self.dump(('item', i), document)
-        e.appendChild(child)
-        e.setAttribute('type', 'list')
-
-      return e
+      return self.dump_list(obj, doc)
 
     elif isinstance(obj, bool):
-      e = document.createElement('item')
-      txt = document.createTextNode(str(obj).lower())
-      e.appendChild(txt)
-
-      return e
+      return self.dump_bool(obj, doc)
 
     elif is_primitive(obj):
-      e = document.createElement('item')
-      txt = document.createTextNode(str(obj))
-      e.appendChild(txt)
+      e = doc.createElement('item')
+      f = doc.createTextNode(str(obj))
+      e.appendChild(f)
 
       return e
 
     else:
       raise ValueError('Cannot marshal object %s' % obj)
 
+  def dump_typed_tuple(self, t, doc):
+    label, struct = t
+
+    e = self.dump(struct['value'], doc)
+    e.tagName = label
+    e.setAttribute('type', struct['type'])
+
+    if struct['type'] == 'permissions':
+      for f in e.childNodes:
+        if self._is_element(f) and f.tagName in struct['value']:
+          f.setAttribute('access', struct['value'][f.tagName]['access'])
+
+    return e
+
+  def dump_dict(self, d, doc):
+    e = doc.createElement('items')
+
+    for i, j in d.iteritems():
+      f = self.dump((i, j), doc)
+      e.appendChild(f)
+      e.setAttribute('type', 'map')
+
+    return e
+
+  def dump_list(self, l, doc):
+    e = doc.createElement('items')
+
+    for i in l:
+      f = self.dump(('item', i), doc)
+      e.appendChild(f)
+      e.setAttribute('type', 'list')
+
+    return e
+
+  def dump_bool(self, b, doc):
+    e = doc.createElement('item')
+    f = doc.createTextNode(str(b).lower())
+    e.appendChild(f)
+
+    return e
+
   def dumps(self, obj):
     return self.dump(obj).toprettyxml(indent='  ')
-
-  def loads(self, data, type=None):
-    return self.load(xml.dom.minidom.parseString(data), type)
 
   def load(self, data, type=None):
     if isinstance(data, xml.dom.minidom.Document):
@@ -712,87 +754,50 @@ class XmlMarshaler(Marshaler):
     if data.hasAttribute('type'):
       type = data.getAttribute('type') if not type else type
 
-    if type and isinstance(data, xml.dom.minidom.Element):
+    if type and self._is_element(data):
       if type in DomainObjectFactory.TYPES:
         return DomainObjectFactory.get_instance(type, **self.load(data, 'map'))
 
-      elif (type == 'map' or type == 'sortedMap'):
-        values = {}
+      elif type == 'map':
+        return self.load_dict(data)
 
-        if data.hasChildNodes():
-          for child in data.childNodes:
-            if isinstance(child, xml.dom.minidom.Element):
-              key = child.nodeName.encode('ascii')
-              value = self.load(child)
-
-              if not key in values:
-                values[key] = value
-
-              else:
-                get_type = __builtin__.type
-                current = values[key]
-
-                # this will bork fucked up xml data structures such as:
-                #
-                # <xs>
-                #   <x><a type="list"><i>2</i></a></x>
-                #   <x><b type="list"><i>3</i></b></x>
-                # </xs>
-                #
-                # but you deserve it
-                if get_type(current) == get_type([]) and len(current):
-                  values[key].append(value)
-
-                else:
-                  values[key] = [current, value]
-
-        return values
+      elif type == 'sortedMap':
+        return {'type': type, 'value': self.load_dict(data)}
 
       elif type == 'list':
-        if data.hasChildNodes():
-          return [self.load(i) for i in data.childNodes if isinstance(i, xml.dom.minidom.Element)]
-        else:
-          return []
+        return self.load_list(data)
 
       elif type == 'set' or type == 'sortedSet':
-        if data.hasChildNodes():
-          return {
-            'type': type,
-            'value': [self.load(i) for i in data.childNodes if isinstance(i, xml.dom.minidom.Element)]
-          }
-
-        else:
-          return {'type': type, 'value': []}
+        return {'type': type, 'value': self.load_list(data)}
 
       elif type == 'float' and data.hasChildNodes():
-        return float(self._flatten(data))
+        return float(self._concat_text_nodes(data))
 
       elif type == 'integer' and data.hasChildNodes():
-        return int(self._flatten(data))
+        return int(self._concat_text_nodes(data))
 
       elif type == 'boolean' and data.hasChildNodes():
-        return bool(self._flatten(data))
+        return bool(self._concat_text_nodes(data))
 
       elif type == 'string' and data.hasChildNodes():
-        return self._flatten(data)
+        return self._concat_text_nodes(data)
 
       elif type == 'permissions' and data.hasChildNodes():
         data.normalize()
-        value = self.load(data, type='map')
+        value = self.load_dict(data)
 
-        for child in data.childNodes:
-          if isinstance(child, xml.dom.minidom.Element) and child.tagName in value:
-            value[child.tagName]['access'] = child.getAttribute('access')
+        for e in self._get_elements(data):
+          if e.tagName in value:
+            value[e.tagName]['access'] = e.getAttribute('access')
 
         return DomainObjectMemberFactory.get_instance('permissions', value)
 
       elif data.hasChildNodes():
         try:
           data.normalize()
-          children = data.childNodes
 
-          if len([child for child in children if isinstance(child, xml.dom.minidom.Element)]):
-            value = self.load(data, type='map')
+          if self._has_elements(data):
+            value = self.load_dict(data)
           else:
             value = self.load(data, type='string')
 
@@ -801,14 +806,45 @@ class XmlMarshaler(Marshaler):
         except Exception as e:
           raise Exception('Cannot load object of type %s with value %s' % (type, data))
 
-    elif isinstance(data, xml.dom.minidom.Element) and data.hasChildNodes():
-      children = data.childNodes
+    elif data.hasChildNodes():
+      if self._has_elements(data):
+        return self.load_dict(data)
+      else:
+        return self.load(data, type='string')
 
-      for child in children:
-        if isinstance(child, xml.dom.minidom.Element):
-          return self.load(data, type='map')
 
-      return self.load(data, type='string')
+  def load_dict(self, data):
+    # output dict
+    d = {}
+
+    for e in data.childNodes:
+      if self._is_element(e):
+        k = e.nodeName.encode('ascii')
+        v = self.load(e)
+
+        if not k in d:
+          d[k] = v
+
+        else:
+          # if d[k] is a list, append v
+          if type(d[k]) == type([]) and len(d[k]):
+            d[k].append(v)
+
+          # construct list from d[k] and v
+          else:
+            d[k] = [d[k], v]
+
+    return d
+
+  def load_list(self, data):
+    if data.hasChildNodes():
+      return [self.load(i) for i in data.childNodes if isinstance(i, xml.dom.minidom.Element)]
+
+    else:
+      return []
+
+  def loads(self, data, type=None):
+    return self.load(xml.dom.minidom.parseString(data), type)
 
 class DomainObject(object):
   """A base abstract class for Flow Domain Objects."""
@@ -1031,7 +1067,7 @@ class DomainObject(object):
     **Keyword args:**
       client (MarshalingClient): A marshaling REST client -- defaults to the current active client
       kargs (dict): dictionary containing one of 'query' or 'filter', \
-          and all or none of 'offset', 'limit', 'sort', and 'order'
+          and all or none of 'start', 'limit', 'sort', and 'order'
 
     """
     active_client = cls.resolve_client(client)
@@ -1050,7 +1086,7 @@ class DomainObject(object):
         uri = cls.class_bound_path()
 
       opts = dict([(opt, kargs.pop(opt)) for opt in \
-          filter(lambda x: x in kargs, ['query', 'filter', 'offset', 'limit', 'sort', 'order'])])
+          filter(lambda x: x in kargs, ['query', 'filter', 'start', 'limit', 'sort', 'order'])])
 
       new = cls(**kargs)
       typed_kargs = new.get_members()
@@ -1290,9 +1326,9 @@ class User(DomainObject):
     super(User, self).__init__(**kargs)
 
 class DomainObjectIterator(object):
-  def __init__(self, objs=[], total=None):
+  def __init__(self, objs=None, total=None):
     self._total = total
-    self.objs = objs
+    self.objs = objs if objs else []
 
   def total(self):
     if not self._total:
@@ -1506,9 +1542,11 @@ class DomainFactory(DomainObjectMemberFactory):
     return DomainObjectFactory.get_instance('user', **kargs)
 
 try:
-  from twisted.internet import reactor
+  from twisted.internet import reactor, task
   from twisted.names.srvconnect import SRVConnector
   from twisted.words.protocols.jabber import client, jid, xmlstream
+
+  XMPP_HOST = 'xmpp.flow.net'
 
   class XmppClient(object):
     """A base class for communication with the Flow Platform's
@@ -1517,14 +1555,25 @@ try:
 
     C2S_PORT = 5222
 
-    def __init__(self, jid_str, secret):
-      self.logger = logging.getLogger('flow.XmppClient')
+    def __init__(self, jid_str, key, secret, actor=None):
+      md = hashlib.sha1()
 
+      # is it an identity-scoped JID?
+      if len(jid_str.split('#')) > 1:
+        if not actor: raise Exception('Actor is required for identity JIDs')
+        md.update(key + secret + actor)
+
+      else:
+        md.update(key + secret)
+
+      self.logger = logging.getLogger('flow.XmppClient')
       self.jid = jid.JID(jid_str)
+      self.password = md.hexdigest()
       self.is_authenticated = False
       self.is_connected = False
+      self.keepalive = task.LoopingCall(self._announce)
 
-      factory = client.XMPPClientFactory(self.jid, secret)
+      factory = client.XMPPClientFactory(self.jid, self.password)
 
       factory.addBootstrap(
           xmlstream.STREAM_CONNECTED_EVENT,
@@ -1568,6 +1617,9 @@ try:
     def disconnect_callback(self):
       pass
 
+    def _announce(self):
+      self.stream.send('<presence />')
+
     def _on_data_in(self, buffer):
       """Log incoming data and trigger incoming callback if authenticated"""
       self.logger.debug('<< %s' % unicode(buffer, 'utf-8').encode('ascii', 'replace'))
@@ -1580,7 +1632,7 @@ try:
 
     def _on_connect(self, stream):
       """Bind data processing routines and trigger connect callback"""
-      self.logger.info('%s connected' % self)
+      self.logger.info('++ %s connected' % self)
       self.is_connected = True
       self.stream = stream
       stream.rawDataInFn = self._on_data_in
@@ -1589,7 +1641,7 @@ try:
 
     def _on_disconnect(self, stream):
       """Stop event-loop and trigger disconnect callback"""
-      self.logger.info('%s disconnected' % self)
+      self.logger.info('++ %s disconnected' % self)
       self.is_connected = False
       self.is_authenticated = False
       reactor.callLater(0.5, reactor.stop)
@@ -1597,13 +1649,16 @@ try:
 
     def _on_authenticate(self, stream):
       """Trigger authentication callback"""
-      self.logger.info('%s authenticated' % self)
+      self.logger.info('++ %s authenticated' % self)
+      self.keepalive.start(10)
       self.is_authenticated = True
+      # reassign JID since we now have a valid resource id
+      self.jid = self.stream.authenticator.jid
       self.authenticate_callback()
 
     def _on_err(self, stream):
       """Close connection during initialization failure"""
-      self.logger.info('%s failed initialization' % self)
+      self.logger.info('-- %s failed initialization' % self)
       self.stream.sendFooter()
 
     class Connector(SRVConnector):

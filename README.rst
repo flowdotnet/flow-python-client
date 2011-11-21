@@ -135,10 +135,10 @@ Instances of these domain model classes follow an Active Record pattern.
       results = flow.Flow.find(query = 'coupon*')
       
       #
-      # add `offset`, `limit`, `sort` and `order` modifiers to any `find` invokation
+      # add `start`, `limit`, `sort` and `order` modifiers to any `find` invokation
       #
       
-      results = flow.Find.find(name = 'My Coupons', local = False, offset = 10, limit = 10)
+      results = flow.Find.find(name = 'My Coupons', local = False, start = 10, limit = 10)
 
   * Deletion ::
 
