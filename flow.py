@@ -1010,13 +1010,6 @@ class DomainObject(object):
 
     if not member:
       uri = self.__class__.instance_bound_path(uid)
-
-      """
-      if active_client.delete(self.__class__, uri):
-        self.set_members(**dict())
-
-      return self
-      """
       return active_client.delete(self.__class__, uri)
 
     else:
@@ -1325,6 +1318,47 @@ class User(DomainObject):
   def __init__(self, **kargs):
     super(User, self).__init__(**kargs)
 
+class ApiTask(DomainObject):
+  """A schedulable task for importing data from a REST request."""
+
+  members = dict(DomainObject.members.items() + [
+    ('request', 'map'),
+    ('period', 'integer')])
+
+  def __init__(self, **kargs):
+    super(ApiTask, self).__init__(**kargs)
+
+  @classmethod
+  def type_hint(cls):
+    return 'apiTask'
+
+  @classmethod
+  def class_bound_path(cls):
+    return '/import/task'
+
+class RssTask(DomainObject):
+  """A schedulable task for importing data from a RSS or Atom feed."""
+
+  members = dict(DomainObject.members.items() + [
+    ('feed', 'rssFeed'),
+    ('status', 'integer'),
+    ('periodicity', 'integer'),
+    ('lastHashSet', 'set'),
+    ('executorId', 'id'),
+    ('lastExecutedDate', 'date'),
+    ('modifiedDate', 'date')])
+
+  def __init__(self, **kargs):
+    super(RssTask, self).__init__(**kargs)
+
+  @classmethod
+  def type_hint(cls):
+    return 'rssTask'
+
+  @classmethod
+  def class_bound_path(cls):
+    return '/rss-task'
+
 class DomainObjectIterator(object):
   def __init__(self, objs=None, total=None):
     self._total = total
@@ -1348,7 +1382,19 @@ class DomainObjectIterator(object):
 class DomainObjectFactory(object):
   """Factory class to instantiate domain objects based upon their string type-hints."""
 
-  TYPES = ['application', 'flow', 'comment', 'drop', 'enum', 'file', 'group', 'identity', 'track', 'user']
+  TYPES = [
+    'application',
+    'flow',
+    'comment',
+    'drop',
+    'enum',
+    'file',
+    'group',
+    'identity',
+    'track',
+    'user',
+    'apiTask',
+    'rssTask']
 
   @staticmethod
   def get_instance(type, **kargs):
@@ -1378,6 +1424,10 @@ class DomainObjectFactory(object):
       return Track(**kargs)
     elif type == 'user':
       return User(**kargs)
+    elif type == 'apiTask':
+      return ApiTask(**kargs)
+    elif type == 'rssTask':
+      return RssTask(**kargs)
     else:
       raise ValueError('Unknown type \'%s\' supplied for instantiation' % type)
 
@@ -1416,7 +1466,8 @@ class DomainObjectMemberFactory(object):
       'dropTemplate',
       'transformFunction',
       'flags',
-      'rating']
+      'rating',
+      'rssFeed']
 
   @staticmethod
   def get_instance(type, value):
@@ -1540,6 +1591,14 @@ class DomainFactory(DomainObjectMemberFactory):
   @classmethod
   def user(**kargs):
     return DomainObjectFactory.get_instance('user', **kargs)
+
+  @classmethod
+  def apiTask(**kargs):
+    return DomainObjectFactory.get_instance('apiTask', **kargs)
+
+  @classmethod
+  def rssTask(**kargs):
+    return DomainObjectFactory.get_instance('rssTask', **kargs)
 
 try:
   from twisted.internet import reactor, task

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-version = '0.1.1'
+version = '0.1.2'
 
 conf = {
   'name' : 'flow',

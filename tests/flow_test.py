@@ -58,6 +58,12 @@ example_user = flow.User(
   email = 'jeff@flow.net',
   password = 'j3ff@f10w.n37')
 
+example_api_task = flow.ApiTask(
+  period = 6000000)
+
+example_rss_task = flow.RssTask(
+  periodicity = 0)
+
 class MarshalerTestCase(unittest.TestCase):
   DUMPABLE = [
       example_application,
@@ -72,7 +78,9 @@ class MarshalerTestCase(unittest.TestCase):
       example_group,
       example_identity,
       example_track,
-      example_user]
+      example_user,
+      example_api_task,
+      example_rss_task]
 
   LOADABLE = []
 
@@ -402,6 +410,34 @@ class XmlUserTestCase(UserTestCase, XmlRestClientTestCase):
   def setUp(self):
     XmlRestClientTestCase.setUp(self)
     UserTestCase.setUp(self)
+
+class ApiTaskTestCase(DomainObjectTestCase):
+  def setUp(self):
+    super(ApiTaskTestCase, self).setUp()
+
+class JsonApiTaskTestCase(ApiTaskTestCase, JsonRestClientTestCase):
+  def setUp(self):
+    JsonRestClientTestCase.setUp(self)
+    ApiTaskTestCase.setUp(self)
+
+class XmlApiTaskTestCase(ApiTaskTestCase, XmlRestClientTestCase):
+  def setUp(self):
+    XmlRestClientTestCase.setUp(self)
+    ApiTaskTestCase.setUp(self)
+
+class RssTaskTestCase(DomainObjectTestCase):
+  def setUp(self):
+    super(RssTaskTestCase, self).setUp()
+
+class JsonRssTaskTestCase(RssTaskTestCase, JsonRestClientTestCase):
+  def setUp(self):
+    JsonRestClientTestCase.setUp(self)
+    RssTaskTestCase.setUp(self)
+
+class XmlRssTaskTestCase(RssTaskTestCase, XmlRestClientTestCase):
+  def setUp(self):
+    XmlRestClientTestCase.setUp(self)
+    RssTaskTestCase.setUp(self)
 
 if __name__ == '__main__':
   unittest.main()

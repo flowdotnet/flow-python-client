@@ -43,11 +43,11 @@ class ExampleXmppClient(flow.XmppClient):
     self.logger.debug('Drop reception event')
 
 if __name__ == '__main__':
-  jid     = '' # app name # identity alias @ xmpp.flow.net
-  key     = '' # app key
-  secret  = '' # app secret
-  actor   = '' # identity id
-  flows   = [] # flow ids
+  jid     = ''
+  key     = ''
+  secret  = ''
+  actor   = ''
+  flows   = []
 
   client = ExampleXmppClient(jid, key, secret, actor, *flows)
   client.set_logger_file('flow_xmpp.log')
