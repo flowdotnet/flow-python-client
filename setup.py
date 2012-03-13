@@ -14,12 +14,12 @@ conf = {
   'maintainer_email' : 'jeff@flow.net',
   'py_modules': ['flow'],
   'keywords': ['Flow', 'PAAS'],
-  'license': 'New-style BSD',
+  'license': 'Apache License, Version 2.0',
   'classifiers': [
     'Development Status :: 0',
     'Environment :: Console',
     'Intended Audience :: Developers',
-    'License :: New-Style BSD',
+    'License :: Apache License, Version 2.0',
     'Operating System :: OS Independent',
     'Programming Language :: Python'],
 

@@ -1,43 +1,24 @@
 """Flow Platform: Python Client Library
 
-Copyright (c) 2010-2011, Flow Search Corporation
+Copyright (c) 2010-2012 Flow Search Corp.
 
-All rights reserved.
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
 
-Redistribution and use in source and binary forms, with or without
-modification, are permitted provided that the following conditions are
-met:
+  http://www.apache.org/licenses/LICENSE-2.0
 
-  * Redistributions of source code must retain the above copyright
-    notice, this list of conditions and the following disclaimer.
-
-  * Redistributions in binary form must reproduce the above
-    copyright notice, this list of conditions and the following
-    disclaimer in the documentation and/or other materials provided
-    with the distribution.
-
-  * Neither the name of the Flow Platform nor the names of its
-    contributors may be used to endorse or promote products derived
-    from this software without specific prior written permission.
-
-THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
-TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
 """
 
 __author__    = 'Jeffrey Olchovy <jeff@flow.net>'
 __version__   = '0.1.1'
-__copyright__ = 'Copyright (c) 2010-2011 Flow Search Corporation' 
-__license__   = 'New-style BSD'
+__copyright__ = 'Copyright (c) 2010-2012 Flow Search Corp.' 
+__license__   = 'Apache License, Version 2.0'
 
 import __builtin__
 import os, sys
@@ -1125,21 +1106,6 @@ class Flow(DomainObject):
   def __init__(self, **kargs):
     super(Flow, self).__init__(**kargs)
 
-class Comment(DomainObject):
-  """A user generated comment associated with a drop or flow."""
-
-  members = dict(DomainObject.members.items() + [
-      ('title', 'string'),
-      ('description', 'string'),
-      ('text', 'string'),
-      ('flowId', 'id'),
-      ('dropId', 'id'),
-      ('parentId', 'id'),
-      ('topParentId', 'id')])
-
-  def __init__(self, **kargs):
-    super(Comment, self).__init__(**kargs)
-
 class Drop(DomainObject):
   """An atomic unit of platform data with map-like behavior."""
 
@@ -1322,8 +1288,13 @@ class ApiTask(DomainObject):
   """A schedulable task for importing data from a REST request."""
 
   members = dict(DomainObject.members.items() + [
-    ('request', 'map'),
-    ('period', 'integer')])
+    ('modifiedDate', 'date'),
+    ('lastExecutedDate', 'date'),
+    ('executorId', 'id'),
+    ('source', 'string'),
+    ('name', 'string'),
+    ('description', 'string'),
+    ('periodicity', 'integer')])
 
   def __init__(self, **kargs):
     super(ApiTask, self).__init__(**kargs)
@@ -1334,7 +1305,7 @@ class ApiTask(DomainObject):
 
   @classmethod
   def class_bound_path(cls):
-    return '/import/task'
+    return '/api-task'
 
 class RssTask(DomainObject):
   """A schedulable task for importing data from a RSS or Atom feed."""
@@ -1385,7 +1356,6 @@ class DomainObjectFactory(object):
   TYPES = [
     'application',
     'flow',
-    'comment',
     'drop',
     'enum',
     'file',
@@ -1410,8 +1380,6 @@ class DomainObjectFactory(object):
       return Application(**kargs)
     elif type == 'flow':
       return Flow(**kargs)
-    elif type == 'comment':
-      return Comment(**kargs)
     elif type == 'drop':
       return Drop(**kargs)
     elif type == 'file':
@@ -1443,21 +1411,34 @@ class DomainObjectMemberFactory(object):
       'set',
       'map']
 
-  LABELLED_STRING_TYPES = [
+  LABELED_STRING_TYPES = [
       'id',
       'path',
       'email',
       'password',
+      'flowRef',
       'url',
+      'upc',
+      'vin', 
+      'phone',
+      'isbn',
       'bytes']
 
-  LABELLED_INT_TYPES = [
-      'weight']
+  LABELED_INT_TYPES = []
 
-  LABELLED_LIST_TYPES = [
+  LABELED_LIST_TYPES = [
       'constraints']
 
-  LABELLED_DICT_TYPES = [
+  LABELED_DICT_TYPES = [
+      'location',
+      'text',
+      'media',
+      'color',
+      'range',
+      'weight',
+      'duration',
+      'length',
+      'dropRef',
       'permissions', 
       'constraint',
       'applicationTemplate',
@@ -1472,7 +1453,7 @@ class DomainObjectMemberFactory(object):
   @staticmethod
   def get_instance(type, value):
     # regular expression patterns can be used in place of strings, or any string-like type
-    if (type == 'string' or type in DomainObjectMemberFactory.LABELLED_STRING_TYPES) \
+    if (type == 'string' or type in DomainObjectMemberFactory.LABELED_STRING_TYPES) \
       and isinstance(value, re._pattern_type):
       return {'type': 'expression', 'value': {'operator': 'regex', 'operand': value.pattern}}
 
@@ -1491,19 +1472,19 @@ class DomainObjectMemberFactory(object):
       else:
         raise NotImplementedError('Cannot create instance for type-value pair (%s, %s)' % (type, value))
 
-    if type in DomainObjectMemberFactory.LABELLED_STRING_TYPES and isinstance(value, basestring):
+    if type in DomainObjectMemberFactory.LABELED_STRING_TYPES and isinstance(value, basestring):
       return {'type': type, 'value': value}
 
-    if type in DomainObjectMemberFactory.LABELLED_INT_TYPES and isinstance(value, int):
+    if type in DomainObjectMemberFactory.LABELED_INT_TYPES and isinstance(value, int):
       return {'type': type, 'value': value}
 
-    if type in DomainObjectMemberFactory.LABELLED_LIST_TYPES and isinstance(value, list):
+    if type in DomainObjectMemberFactory.LABELED_LIST_TYPES and isinstance(value, list):
       return {'type': type, 'value': value}
 
-    if type in DomainObjectMemberFactory.LABELLED_LIST_TYPES and isinstance(value, dict):
+    if type in DomainObjectMemberFactory.LABELED_LIST_TYPES and isinstance(value, dict):
       return {'type': type, 'value': value.popitem()[1]}
 
-    if type in DomainObjectMemberFactory.LABELLED_DICT_TYPES and isinstance(value, dict):
+    if type in DomainObjectMemberFactory.LABELED_DICT_TYPES and isinstance(value, dict):
       return {'type': type, 'value': value}
 
     # build date from an integer value or string that represents milliseconds since epoch
@@ -1540,6 +1521,22 @@ class DomainObjectMemberFactory(object):
     return cls.get_instance('url', value)
 
   @classmethod
+  def upc(cls, value):
+    return cls.get_instance('upc', value)
+
+  @classmethod
+  def vin(cls, value):
+    return cls.get_instance('vin', value)
+
+  @classmethod
+  def phone(cls, value):
+    return cls.get_instance('phone', value)
+
+  @classmethod
+  def isbn(cls, value):
+    return cls.get_instance('isbn', value)
+
+  @classmethod
   def constraints(cls, *values):
     return cls.get_instance('constraints', [cls.get_instance('constraint', i) for i in values])
 
@@ -1557,12 +1554,8 @@ class DomainFactory(DomainObjectMemberFactory):
     return DomainObjectFactory.get_instance('application', **kargs)
 
   @classmethod
-  def bucket(**kargs):
-    return DomainObjectFactory.get_instance('bucket', **kargs)
-
-  @classmethod
-  def comment(**kargs):
-    return DomainObjectFactory.get_instance('comment', **kargs)
+  def flow(**kargs):
+    return DomainObjectFactory.get_instance('flow', **kargs)
 
   @classmethod
   def drop(**kargs):
@@ -1659,6 +1652,7 @@ try:
       self.logger.addHandler(logging.FileHandler(filename))
 
     def start(self):
+      self.logger.debug('start')
       reactor.run()
 
     def incoming_packet_callback(self, buf):

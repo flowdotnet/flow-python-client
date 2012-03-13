@@ -1,0 +1,252 @@
+<results>
+  <result type="drop">
+    <id type="id">4f577ce330049adda8687a82</id>
+    <fhash type="string">AQXFpjfDXp</fhash>
+    <weight type="integer">1606149747</weight>
+    <lasteditorid type="id">4f577ce330049adda8687a81</lasteditorid>
+    <creatorid type="id">4f577ce330049adda8687a80</creatorid>
+    <lasteditdate type="date">1331133667853</lasteditdate>
+    <parentdropid type="id">4f577ce330049adda8687a7f</parentdropid>
+    <creationdate type="date">1331133667853</creationdate>
+    <path type="path">/test/samples</path>
+    <elems type="map">
+      <string type="string">a string</string>
+      <double type="float">0.27918789880679074</double>
+      <boolean type="boolean">true</boolean>
+      <date type="date">-5182434507407376023</date>
+      <integer type="integer">-1683365352</integer>
+      <byte type="bytes">VEhJU0lTUkFORE9N</byte>
+    </elems>
+    <ratings type="rating">
+      <avg type="float">3.0</avg>
+      <votes type="integer">1</votes>
+      <history type="map">
+        <votes_for_0 type="integer">0</votes_for_0>
+        <votes_for_1 type="integer">0</votes_for_1>
+        <votes_for_2 type="integer">0</votes_for_2>
+        <votes_for_3 type="integer">1</votes_for_3>
+        <votes_for_4 type="integer">0</votes_for_4>
+        <votes_for_5 type="integer">0</votes_for_5>
+        <votes_for_6 type="integer">0</votes_for_6>
+        <votes_for_7 type="integer">0</votes_for_7>
+        <votes_for_8 type="integer">0</votes_for_8>
+        <votes_for_9 type="integer">0</votes_for_9>
+        <votes_for_10 type="integer">0</votes_for_10>
+      </history>
+    </ratings>
+    <flowid type="id">111111111111111111111111</flowid>
+    <actions type="map">
+      <read type="boolean">true</read>
+      <write type="boolean">true</write>
+      <delete type="boolean">true</delete>
+    </actions>
+  </result>
+  <result type="drop">
+    <id type="id">4f577ce330049adda8687a87</id>
+    <fhash type="string">JEIrtUuWLZ</fhash>
+    <weight type="integer">649581839</weight>
+    <lasteditorid type="id">4f577ce330049adda8687a86</lasteditorid>
+    <creatorid type="id">4f577ce330049adda8687a85</creatorid>
+    <lasteditdate type="date">1331133667858</lasteditdate>
+    <parentdropid type="id">4f577ce330049adda8687a84</parentdropid>
+    <creationdate type="date">1331133667858</creationdate>
+    <path type="path">/test/samples</path>
+    <elems type="map">
+      <email type="email">oemfjfjaio@test.com</email>
+      <url type="url">http://rgHzRCJUcQ.com</url>
+      <upc type="upc">PFWIdMAUND</upc>
+      <vin type="vin">oUqQeFWXFt</vin>
+      <isbn type="isbn">cGuLpaQtdF</isbn>
+      <phone type="phone">PMFCWUpXoR</phone>
+    </elems>
+    <ratings type="rating">
+      <avg type="float">5.0</avg>
+      <votes type="integer">1</votes>
+      <history type="map">
+        <votes_for_0 type="integer">0</votes_for_0>
+        <votes_for_1 type="integer">0</votes_for_1>
+        <votes_for_2 type="integer">0</votes_for_2>
+        <votes_for_3 type="integer">0</votes_for_3>
+        <votes_for_4 type="integer">0</votes_for_4>
+        <votes_for_5 type="integer">1</votes_for_5>
+        <votes_for_6 type="integer">0</votes_for_6>
+        <votes_for_7 type="integer">0</votes_for_7>
+        <votes_for_8 type="integer">0</votes_for_8>
+        <votes_for_9 type="integer">0</votes_for_9>
+        <votes_for_10 type="integer">0</votes_for_10>
+      </history>
+    </ratings>
+    <flowid type="id">111111111111111111111111</flowid>
+    <actions type="map">
+      <read type="boolean">true</read>
+      <write type="boolean">true</write>
+      <delete type="boolean">true</delete>
+    </actions>
+  </result>
+  <result type="drop">
+    <id type="id">4f577ce330049adda8687a8c</id>
+    <fhash type="string">gdzqeCTVcF</fhash>
+    <weight type="integer">1848218696</weight>
+    <lasteditorid type="id">4f577ce330049adda8687a8b</lasteditorid>
+    <creatorid type="id">4f577ce330049adda8687a8a</creatorid>
+    <lasteditdate type="date">1331133667859</lasteditdate>
+    <parentdropid type="id">4f577ce330049adda8687a89</parentdropid>
+    <creationdate type="date">1331133667859</creationdate>
+    <path type="path">/test/samples</path>
+    <elems type="map">
+      <location type="location">
+        <lat type="float">0.06031791922725516</lat>
+        <lon type="float">0.6709274265862697</lon>
+        <specifiers type="map">
+          <street type="string">42-40 Bowne St.</street>
+          <state type="string">NY</state>
+          <zip type="string">11355</zip>
+        </specifiers>
+      </location>
+      <bucketref type="flowRef">4f577ce230049adda8687a65</bucketref>
+      <text type="text">
+        <format type="string">html</format>
+        <content type="string">some text</content>
+        <safe type="boolean">true</safe>
+      </text>
+      <color type="color">
+        <red type="integer">71</red>
+        <green type="integer">58</green>
+        <blue type="integer">130</blue>
+        <alpha type="integer">255</alpha>
+      </color>
+      <range type="range">
+        <start type="integer">2101730248</start>
+        <end type="integer">-1253485204</end>
+        <step type="integer">-602116970</step>
+      </range>
+      <media type="media">
+        <text type="string">some text</text>
+        <version type="string">1.0</version>
+        <title type="string">some title</title>
+        <type type="string">HTML</type>
+        <this will="" get="" ignored="" type="string">ANY</this>
+      </media>
+      <dropref type="dropRef">
+        <flowid type="id">4f577ce230049adda8687a66</flowid>
+        <dropid type="id">4f577ce230049adda8687a67</dropid>
+      </dropref>
+    </elems>
+    <ratings type="rating">
+      <avg type="float">0.0</avg>
+      <votes type="integer">1</votes>
+      <history type="map">
+        <votes_for_0 type="integer">1</votes_for_0>
+        <votes_for_1 type="integer">0</votes_for_1>
+        <votes_for_2 type="integer">0</votes_for_2>
+        <votes_for_3 type="integer">0</votes_for_3>
+        <votes_for_4 type="integer">0</votes_for_4>
+        <votes_for_5 type="integer">0</votes_for_5>
+        <votes_for_6 type="integer">0</votes_for_6>
+        <votes_for_7 type="integer">0</votes_for_7>
+        <votes_for_8 type="integer">0</votes_for_8>
+        <votes_for_9 type="integer">0</votes_for_9>
+        <votes_for_10 type="integer">0</votes_for_10>
+      </history>
+    </ratings>
+    <flowid type="id">111111111111111111111111</flowid>
+    <actions type="map">
+      <read type="boolean">true</read>
+      <write type="boolean">true</write>
+      <delete type="boolean">true</delete>
+    </actions>
+  </result>
+  <result type="drop">
+    <id type="id">4f577ce330049adda8687a91</id>
+    <fhash type="string">VzNLMWaNdi</fhash>
+    <weight type="integer">1643549136</weight>
+    <lasteditorid type="id">4f577ce330049adda8687a90</lasteditorid>
+    <creatorid type="id">4f577ce330049adda8687a8f</creatorid>
+    <lasteditdate type="date">1331133667863</lasteditdate>
+    <parentdropid type="id">4f577ce330049adda8687a8e</parentdropid>
+    <creationdate type="date">1331133667863</creationdate>
+    <path type="path">/test/samples</path>
+    <elems type="map">
+      <treemap type="sortedMap">
+        <a type="integer">1</a>
+        <b type="integer">2</b>
+      </treemap>
+      <treeset type="sortedSet">
+        <item type="string">A</item>
+        <item type="string">B</item>
+        <item type="string">C</item>
+      </treeset>
+      <hashmap type="map">
+        <a type="integer">1</a>
+        <b type="integer">2</b>
+      </hashmap>
+      <arraylist type="list">
+        <item type="string">A</item>
+        <item type="string">B</item>
+        <item type="string">C</item>
+      </arraylist>
+      <hashset type="set">
+        <item type="string">A</item>
+        <item type="string">B</item>
+        <item type="string">C</item>
+      </hashset>
+    </elems>
+    <ratings type="rating">
+      <avg type="float">1.0</avg>
+      <votes type="integer">1</votes>
+      <history type="map">
+        <votes_for_0 type="integer">0</votes_for_0>
+        <votes_for_1 type="integer">1</votes_for_1>
+        <votes_for_2 type="integer">0</votes_for_2>
+        <votes_for_3 type="integer">0</votes_for_3>
+        <votes_for_4 type="integer">0</votes_for_4>
+        <votes_for_5 type="integer">0</votes_for_5>
+        <votes_for_6 type="integer">0</votes_for_6>
+        <votes_for_7 type="integer">0</votes_for_7>
+        <votes_for_8 type="integer">0</votes_for_8>
+        <votes_for_9 type="integer">0</votes_for_9>
+        <votes_for_10 type="integer">0</votes_for_10>
+      </history>
+    </ratings>
+    <flowid type="id">111111111111111111111111</flowid>
+    <actions type="map">
+      <read type="boolean">true</read>
+      <write type="boolean">true</write>
+      <delete type="boolean">true</delete>
+    </actions>
+  </result>
+  <result type="drop">
+    <id type="id">4f577ce330049adda8687a96</id>
+    <fhash type="string">jtUAENIyGl</fhash>
+    <weight type="integer">2033775837</weight>
+    <lasteditorid type="id">4f577ce330049adda8687a95</lasteditorid>
+    <creatorid type="id">4f577ce330049adda8687a94</creatorid>
+    <lasteditdate type="date">1331133667864</lasteditdate>
+    <parentdropid type="id">4f577ce330049adda8687a93</parentdropid>
+    <creationdate type="date">1331133667864</creationdate>
+    <path type="path">/test/samples</path>
+    <ratings type="rating">
+      <avg type="float">3.0</avg>
+      <votes type="integer">1</votes>
+      <history type="map">
+        <votes_for_0 type="integer">0</votes_for_0>
+        <votes_for_1 type="integer">0</votes_for_1>
+        <votes_for_2 type="integer">0</votes_for_2>
+        <votes_for_3 type="integer">1</votes_for_3>
+        <votes_for_4 type="integer">0</votes_for_4>
+        <votes_for_5 type="integer">0</votes_for_5>
+        <votes_for_6 type="integer">0</votes_for_6>
+        <votes_for_7 type="integer">0</votes_for_7>
+        <votes_for_8 type="integer">0</votes_for_8>
+        <votes_for_9 type="integer">0</votes_for_9>
+        <votes_for_10 type="integer">0</votes_for_10>
+      </history>
+    </ratings>
+    <flowid type="id">111111111111111111111111</flowid>
+    <actions type="map">
+      <read type="boolean">true</read>
+      <write type="boolean">true</write>
+      <delete type="boolean">true</delete>
+    </actions>
+  </result>
+</results>

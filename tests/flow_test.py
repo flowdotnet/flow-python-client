@@ -1,6 +1,7 @@
 import unittest
 import logging
 import flow
+import json
 
 KEY     = '4e5ff8640943c37e3bb49bd3' 
 SECRET  = 'KtgPGKyrVN'
@@ -29,9 +30,6 @@ example_bucket_4 = flow.Flow(
 example_bucket_5 = flow.Flow(
     name = 'flow_python_client_example_bucket_5',
     path = '/test/flow_python_client_example_bucket_5')
-
-example_comment = flow.Comment(
-    text = 'Lorem ipsum dolor sit amet')
 
 example_drop = flow.Drop(
     elems = {
@@ -72,7 +70,6 @@ class MarshalerTestCase(unittest.TestCase):
       example_bucket_3,
       example_bucket_4,
       example_bucket_5,
-      example_comment,
       example_drop,
       example_file,
       example_group,
@@ -109,14 +106,6 @@ class JsonMarshalerTestCase(MarshalerTestCase):
 
   """
   { "type" : "flow"
-  , "value" : 
-    {
-    }
-  }
-  """,
-
-  """
-  { "type" : "comment"
   , "value" : 
     {
     }
@@ -174,6 +163,15 @@ class JsonMarshalerTestCase(MarshalerTestCase):
   def setUp(self):
     self.marshaler = flow.JsonMarshaler()
 
+  def test_drops_loads(self):
+    f = open('tests/data/drops.json', 'r')
+    json_string = f.read()
+    f.close()
+    drop_dicts = json.loads(json_string)
+    for drop_dict in drop_dicts:
+      drop = self.marshaler.load(drop_dict, 'drop')
+      print drop.get_members()
+
 class XmlMarshalerTestCase(MarshalerTestCase):
   LOADABLE = [
   """
@@ -184,11 +182,6 @@ class XmlMarshalerTestCase(MarshalerTestCase):
   """
   <bucket type="flow">
   </bucket>
-  """,
-
-  """
-  <comment type="comment">
-  </comment>
   """,
 
   """
@@ -223,6 +216,13 @@ class XmlMarshalerTestCase(MarshalerTestCase):
 
   def setUp(self):
     self.marshaler = flow.XmlMarshaler()
+
+  def test_drops_loads(self):
+    f = open('tests/data/drops.xml', 'r')
+    xml_string = f.read()
+    f.close()
+    drops = self.marshaler.loads(xml_string, 'list')
+    for drop in drops: print drop.get_members()
 
 class RestClientTestCase(unittest.TestCase):
   def setUp(self):
@@ -305,21 +305,6 @@ class XmlFlowTestCase(FlowTestCase, XmlRestClientTestCase):
   def setUp(self):
     XmlRestClientTestCase.setUp(self)
     FlowTestCase.setUp(self)
-
-class CommentTestCase(DomainObjectTestCase):
-  def setUp(self):
-    super(CommentTestCase, self).setUp()
-    #self.domain_object = flow.Comment()
-
-class JsonCommentTestCase(CommentTestCase, JsonRestClientTestCase):
-  def setUp(self):
-    JsonRestClientTestCase.setUp(self)
-    CommentTestCase.setUp(self)
-
-class XmlCommentTestCase(CommentTestCase, XmlRestClientTestCase):
-  def setUp(self):
-    XmlRestClientTestCase.setUp(self)
-    CommentTestCase.setUp(self)
 
 class DropTestCase(DomainObjectTestCase):
   def setUp(self):
